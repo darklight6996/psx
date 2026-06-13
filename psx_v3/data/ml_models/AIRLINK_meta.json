@@ -1,0 +1,35 @@
+{
+  "symbol": "AIRLINK",
+  "training_rows": 426,
+  "rf_cv_accuracy_pct": 36.6,
+  "xgb_cv_mae_pct": 2.637,
+  "feature_importances": {
+    "rsi": 0.0782,
+    "macd": 0.0697,
+    "macd_signal": 0.0737,
+    "macd_hist": 0.0727,
+    "return_1d": 0.0717,
+    "return_7d": 0.1032,
+    "volatility": 0.0719,
+    "vol_percentile_20d": 0.0939,
+    "price_vs_ma20": 0.1072,
+    "volume_ratio": 0.0831,
+    "pct_from_52w_low": 0.0849,
+    "pct_from_52w_high": 0.0899
+  },
+  "features": [
+    "rsi",
+    "macd",
+    "macd_signal",
+    "macd_hist",
+    "return_1d",
+    "return_7d",
+    "volatility",
+    "vol_percentile_20d",
+    "price_vs_ma20",
+    "volume_ratio",
+    "pct_from_52w_low",
+    "pct_from_52w_high"
+  ],
+  "trained_at": "2026-06-11T11:18:16.069193"
+}

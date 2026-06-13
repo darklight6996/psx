@@ -1,0 +1,35 @@
+{
+  "symbol": "HASCOL",
+  "training_rows": 429,
+  "rf_cv_accuracy_pct": 36.9,
+  "xgb_cv_mae_pct": 3.397,
+  "feature_importances": {
+    "rsi": 0.0622,
+    "macd": 0.068,
+    "macd_signal": 0.0795,
+    "macd_hist": 0.1049,
+    "return_1d": 0.0788,
+    "return_7d": 0.0912,
+    "volatility": 0.0738,
+    "vol_percentile_20d": 0.0856,
+    "price_vs_ma20": 0.0906,
+    "volume_ratio": 0.0671,
+    "pct_from_52w_low": 0.1128,
+    "pct_from_52w_high": 0.0854
+  },
+  "features": [
+    "rsi",
+    "macd",
+    "macd_signal",
+    "macd_hist",
+    "return_1d",
+    "return_7d",
+    "volatility",
+    "vol_percentile_20d",
+    "price_vs_ma20",
+    "volume_ratio",
+    "pct_from_52w_low",
+    "pct_from_52w_high"
+  ],
+  "trained_at": "2026-06-11T14:32:20.418710"
+}

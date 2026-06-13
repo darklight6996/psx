@@ -1,0 +1,35 @@
+{
+  "symbol": "EFERT",
+  "training_rows": 428,
+  "rf_cv_accuracy_pct": 31.0,
+  "xgb_cv_mae_pct": 1.825,
+  "feature_importances": {
+    "rsi": 0.0638,
+    "macd": 0.1015,
+    "macd_signal": 0.0985,
+    "macd_hist": 0.0746,
+    "return_1d": 0.0775,
+    "return_7d": 0.0845,
+    "volatility": 0.0736,
+    "vol_percentile_20d": 0.0791,
+    "price_vs_ma20": 0.1009,
+    "volume_ratio": 0.0644,
+    "pct_from_52w_low": 0.083,
+    "pct_from_52w_high": 0.0986
+  },
+  "features": [
+    "rsi",
+    "macd",
+    "macd_signal",
+    "macd_hist",
+    "return_1d",
+    "return_7d",
+    "volatility",
+    "vol_percentile_20d",
+    "price_vs_ma20",
+    "volume_ratio",
+    "pct_from_52w_low",
+    "pct_from_52w_high"
+  ],
+  "trained_at": "2026-06-11T12:52:27.605068"
+}

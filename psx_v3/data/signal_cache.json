@@ -1,0 +1,105 @@
+{
+    "sector_rotation": {
+        "sectors": {
+            "Automobile Assembler / Parts": {
+                "return": 42.61915299738709,
+                "rank": 1,
+                "status": "LEADER"
+            },
+            "Miscellaneous / Real Estate": {
+                "return": 37.53029514232479,
+                "rank": 2,
+                "status": "LEADER"
+            },
+            "Steel & Engineering": {
+                "return": 6.728571459285024,
+                "rank": 3,
+                "status": "LEADER"
+            },
+            "Transport / Logistics": {
+                "return": 6.473496848700093,
+                "rank": 4,
+                "status": "LEADER"
+            },
+            "Textile": {
+                "return": 5.043901405236454,
+                "rank": 5,
+                "status": "NEUTRAL"
+            },
+            "Glass & Ceramics": {
+                "return": 4.128204500650487,
+                "rank": 6,
+                "status": "NEUTRAL"
+            },
+            "Cement": {
+                "return": 3.6136293432488906,
+                "rank": 7,
+                "status": "NEUTRAL"
+            },
+            "Technology & Telecom": {
+                "return": 3.5176760224302277,
+                "rank": 8,
+                "status": "NEUTRAL"
+            },
+            "Chemicals & Paper": {
+                "return": 2.583622378200807,
+                "rank": 9,
+                "status": "NEUTRAL"
+            },
+            "Pharmaceuticals": {
+                "return": 2.5061043571913975,
+                "rank": 10,
+                "status": "NEUTRAL"
+            },
+            "Fertilizer": {
+                "return": 0.9266169366500592,
+                "rank": 11,
+                "status": "NEUTRAL"
+            },
+            "Food & Beverages / Personal Care": {
+                "return": -1.7733127951027374,
+                "rank": 12,
+                "status": "NEUTRAL"
+            },
+            "Oil & Gas Exploration": {
+                "return": -1.8191569192744144,
+                "rank": 13,
+                "status": "LAGGARD"
+            },
+            "Oil & Gas Marketing": {
+                "return": -1.8850666975611992,
+                "rank": 14,
+                "status": "LAGGARD"
+            },
+            "Power Generation & Distribution": {
+                "return": -1.9982236554896122,
+                "rank": 15,
+                "status": "LAGGARD"
+            },
+            "Refineries": {
+                "return": -2.7849389555111905,
+                "rank": 16,
+                "status": "LAGGARD"
+            }
+        },
+        "timestamp": 1781247021.3843582,
+        "updated_at": "2026-06-12T11:50:37.173523"
+    },
+    "breadth": {
+        "status": "CONSOLIDATING",
+        "index_price": 169703.6,
+        "ema_20": 169141.54,
+        "atr_10": 1261.56,
+        "up_down_ratio": 1.0,
+        "sentiment": "neutral",
+        "timestamp": 1781247038.7540452,
+        "updated_at": "2026-06-12T11:50:40.830193"
+    },
+    "kibor": {
+        "rate": 12.5,
+        "sentiment": "neutral",
+        "timestamp": 1781247021.234116,
+        "source": "State Bank of Pakistan",
+        "updated_at": "2026-06-12T11:50:21.383356"
+    }
+}

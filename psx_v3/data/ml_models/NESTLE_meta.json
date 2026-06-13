@@ -1,0 +1,35 @@
+{
+  "symbol": "NESTLE",
+  "training_rows": 427,
+  "rf_cv_accuracy_pct": 40.8,
+  "xgb_cv_mae_pct": 1.037,
+  "feature_importances": {
+    "rsi": 0.0762,
+    "macd": 0.0875,
+    "macd_signal": 0.0535,
+    "macd_hist": 0.0612,
+    "return_1d": 0.0993,
+    "return_7d": 0.0842,
+    "volatility": 0.0498,
+    "vol_percentile_20d": 0.1134,
+    "price_vs_ma20": 0.0981,
+    "volume_ratio": 0.053,
+    "pct_from_52w_low": 0.1432,
+    "pct_from_52w_high": 0.0807
+  },
+  "features": [
+    "rsi",
+    "macd",
+    "macd_signal",
+    "macd_hist",
+    "return_1d",
+    "return_7d",
+    "volatility",
+    "vol_percentile_20d",
+    "price_vs_ma20",
+    "volume_ratio",
+    "pct_from_52w_low",
+    "pct_from_52w_high"
+  ],
+  "trained_at": "2026-06-11T12:52:48.379283"
+}

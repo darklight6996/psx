@@ -1,0 +1,23 @@
+{
+  "symbol": "POOLED",
+  "training_rows": 40136,
+  "rf_cv_accuracy_pct": 57.3,
+  "trained_at": "2026-06-12T13:21:36.261748",
+  "n_classes": 2,
+  "baseline_accuracy": 50.0,
+  "ml_signal_reliable": true,
+  "features": [
+    "rsi",
+    "macd",
+    "macd_signal",
+    "macd_hist",
+    "return_1d",
+    "return_7d",
+    "volatility",
+    "vol_percentile_20d",
+    "price_vs_ma20",
+    "volume_ratio",
+    "pct_from_52w_low",
+    "pct_from_52w_high"
+  ]
+}
