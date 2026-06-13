@@ -1,0 +1,35 @@
+{
+  "symbol": "SEARL",
+  "training_rows": 428,
+  "rf_cv_accuracy_pct": 33.0,
+  "xgb_cv_mae_pct": 2.997,
+  "feature_importances": {
+    "rsi": 0.0699,
+    "macd": 0.0767,
+    "macd_signal": 0.0622,
+    "macd_hist": 0.0726,
+    "return_1d": 0.0719,
+    "return_7d": 0.086,
+    "volatility": 0.0823,
+    "vol_percentile_20d": 0.0728,
+    "price_vs_ma20": 0.084,
+    "volume_ratio": 0.093,
+    "pct_from_52w_low": 0.1016,
+    "pct_from_52w_high": 0.1271
+  },
+  "features": [
+    "rsi",
+    "macd",
+    "macd_signal",
+    "macd_hist",
+    "return_1d",
+    "return_7d",
+    "volatility",
+    "vol_percentile_20d",
+    "price_vs_ma20",
+    "volume_ratio",
+    "pct_from_52w_low",
+    "pct_from_52w_high"
+  ],
+  "trained_at": "2026-06-11T12:52:55.717115"
+}

@@ -1,0 +1,15 @@
+{
+  "positions": {
+    "FCEPL": {
+      "ticker": "FCEPL",
+      "entry_price": 0.01,
+      "shares": 15,
+      "cost_basis": 0.15,
+      "date": "2026-06-02",
+      "notes": "",
+      "added_at": "2026-06-02T12:34:42.079940"
+    }
+  },
+  "total_capital": 6331.98,
+  "currency": "PKR"
+}

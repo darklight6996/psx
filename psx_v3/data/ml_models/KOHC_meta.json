@@ -1,0 +1,35 @@
+{
+  "symbol": "KOHC",
+  "training_rows": 427,
+  "rf_cv_accuracy_pct": 34.1,
+  "xgb_cv_mae_pct": 4.475,
+  "feature_importances": {
+    "rsi": 0.1337,
+    "macd": 0.0957,
+    "macd_signal": 0.0482,
+    "macd_hist": 0.2856,
+    "return_1d": 0.0186,
+    "return_7d": 0.1628,
+    "volatility": 0.0071,
+    "vol_percentile_20d": 0.0081,
+    "price_vs_ma20": 0.2079,
+    "volume_ratio": 0.0109,
+    "pct_from_52w_low": 0.014,
+    "pct_from_52w_high": 0.0073
+  },
+  "features": [
+    "rsi",
+    "macd",
+    "macd_signal",
+    "macd_hist",
+    "return_1d",
+    "return_7d",
+    "volatility",
+    "vol_percentile_20d",
+    "price_vs_ma20",
+    "volume_ratio",
+    "pct_from_52w_low",
+    "pct_from_52w_high"
+  ],
+  "trained_at": "2026-06-11T14:35:01.835339"
+}

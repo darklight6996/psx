@@ -1,0 +1,28 @@
+{
+    "type": "object",
+    "properties": {
+        "symbol": {"type": "string"},
+        "timestamp": {"type": "string"},
+        "price": {"type": "number"},
+        "open": {"type": "number"},
+        "prev_close": {"type": "number"},
+        "volume": {"type": "number"},
+        "avg_volume_20d": {"type": "number"},
+        "rsi": {"type": "number"},
+        "macd": {"type": "number"},
+        "macd_signal": {"type": "number"},
+        "return_1d": {"type": "number"},
+        "return_7d": {"type": "number"},
+        "volatility": {"type": "number"},
+        "vol_percentile_20d": {"type": "number"},
+        "ma_20": {"type": "number"},
+        "low_52w": {"type": "number"},
+        "high_52w": {"type": "number"}
+    },
+    "required": [
+        "symbol", "timestamp", "price", "open", "prev_close", 
+        "volume", "avg_volume_20d", "rsi", "macd", "macd_signal", 
+        "return_1d", "return_7d", "volatility", "vol_percentile_20d", 
+        "ma_20", "low_52w", "high_52w"
+    ]
+}

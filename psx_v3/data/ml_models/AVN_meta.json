@@ -1,0 +1,35 @@
+{
+  "symbol": "AVN",
+  "training_rows": 427,
+  "rf_cv_accuracy_pct": 36.6,
+  "xgb_cv_mae_pct": 1.977,
+  "feature_importances": {
+    "rsi": 0.0508,
+    "macd": 0.072,
+    "macd_signal": 0.0736,
+    "macd_hist": 0.0693,
+    "return_1d": 0.0816,
+    "return_7d": 0.0916,
+    "volatility": 0.0881,
+    "vol_percentile_20d": 0.0947,
+    "price_vs_ma20": 0.0923,
+    "volume_ratio": 0.0796,
+    "pct_from_52w_low": 0.0812,
+    "pct_from_52w_high": 0.1252
+  },
+  "features": [
+    "rsi",
+    "macd",
+    "macd_signal",
+    "macd_hist",
+    "return_1d",
+    "return_7d",
+    "volatility",
+    "vol_percentile_20d",
+    "price_vs_ma20",
+    "volume_ratio",
+    "pct_from_52w_low",
+    "pct_from_52w_high"
+  ],
+  "trained_at": "2026-06-11T14:41:19.600439"
+}
