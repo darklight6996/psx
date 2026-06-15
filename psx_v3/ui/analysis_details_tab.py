@@ -100,7 +100,7 @@ def render_analysis_details_tab(results: dict):
             st.markdown("#### ☽ Shariah Compliance Screen")
             shariah = r["shariah"]
             sh_status = shariah.get("overall_status", "UNKNOWN")
-            sh_color = {"COMPLIANT": "#4ade80", "REVIEW": "#fbbf24", "NON-COMPLIANT": "#f87171"}.get(sh_status, "#cbd5e1")
+            sh_color = {"COMPLIANT": "#4ade80", "GRAY_AREA": "#fbbf24", "NON_COMPLIANT": "#f87171"}.get(sh_status, "#cbd5e1")
             
             st.markdown(
                 f"""<div style="background:#1e293b;border:1px solid {sh_color}44;padding:12px 18px;border-radius:8px;margin-bottom:12px;">

@@ -25,7 +25,7 @@ def _rating_color(rating: str) -> str:
     return {"BUY": "🟢", "HOLD": "🟡", "SELL": "🔴"}.get(rating, "⚪")
 
 def _shariah_color(status: str) -> str:
-    return {"COMPLIANT": "✅", "REVIEW": "⚠️", "NON-COMPLIANT": "❌"}.get(status, "❓")
+    return {"COMPLIANT": "✅", "GRAY_AREA": "⚠️", "NON_COMPLIANT": "❌"}.get(status, "❓")
 
 def _criterion_icon(status: str) -> str:
     return {"PASS": "✅", "WARN": "⚠️", "FAIL": "❌", "UNKNOWN": "❓"}.get(status, "❓")
@@ -125,8 +125,8 @@ def render_stock_detail(symbol: str, result: dict):
 
     # Header
     rating    = advisory["rating"]
-    rc        = {"BUY": "#4ade80", "SELL": "#f87171", "HOLD": "#fbbf24"}[rating]
-    bg        = {"BUY": "#0f4c2a", "SELL": "#4a1818", "HOLD": "#3a2c0a"}[rating]
+    rc        = {"BUY": "#4ade80", "SELL": "#f87171", "HOLD": "#fbbf24"}.get(rating, "#94a3b8")
+    bg        = {"BUY": "#0f4c2a", "SELL": "#4a1818", "HOLD": "#3a2c0a"}.get(rating, "#1e293b")
 
     regime = result.get("regime", {}).get("regime", "CHOPPY")
     regime_colors = {
@@ -218,8 +218,8 @@ def render_stock_detail(symbol: str, result: dict):
     st.markdown("#### ☽ Shariah Compliance")
 
     sc_status = shariah["overall_status"]
-    sc_color  = {"COMPLIANT": "#4ade80", "REVIEW": "#fbbf24", "NON-COMPLIANT": "#f87171"}[sc_status]
-    sc_bg     = {"COMPLIANT": "#0f4c2a", "REVIEW": "#3a2c0a",  "NON-COMPLIANT": "#4a1818"}[sc_status]
+    sc_color  = {"COMPLIANT": "#4ade80", "GRAY_AREA": "#fbbf24", "NON_COMPLIANT": "#f87171"}.get(sc_status, "#94a3b8")
+    sc_bg     = {"COMPLIANT": "#0f4c2a", "GRAY_AREA": "#3a2c0a",  "NON_COMPLIANT": "#4a1818"}.get(sc_status, "#334155")
     kmi_check = shariah.get("kmi_check", {})
     source    = kmi_check.get("source", "hardcoded_fallback")
     conf      = kmi_check.get("confidence", "LOW")
