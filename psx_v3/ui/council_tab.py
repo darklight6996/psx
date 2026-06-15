@@ -20,7 +20,31 @@ def render_council_tab(daily_results: dict, macro: dict):
         st.warning("Run the Daily Analysis first to populate results.")
         return
 
-    selected = st.selectbox("Select stock to view debate:", valid, key="council_stock_select_static")
+    shortlisted = [sym for sym in valid if daily_results[sym].get("council_run") == 1]
+    not_shortlisted = [sym for sym in valid if daily_results[sym].get("council_run") != 1]
+
+    # Display qualification status
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown("#### 🎯 Shortlisted for Debate (Tier 2 Qualified)")
+        if shortlisted:
+            for sym in shortlisted:
+                st.markdown(f"- **{sym}** ({daily_results[sym]['advisory']['rating']} | Score: {daily_results[sym]['advisory']['score']:.1f})")
+        else:
+            st.info("No candidates qualified for debate in the current run.")
+
+    with col2:
+        st.markdown("#### 🔍 Evaluated but Not Shortlisted")
+        if not_shortlisted:
+            st.write(", ".join(not_shortlisted))
+        else:
+            st.write("None")
+
+    st.markdown("---")
+
+    # Order selectbox to put shortlisted ones first
+    ordered_list = shortlisted + not_shortlisted
+    selected = st.selectbox("Select stock to view debate/status:", ordered_list, key="council_stock_select_static")
 
     if selected:
         r = daily_results[selected]

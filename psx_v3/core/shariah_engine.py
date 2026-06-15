@@ -274,7 +274,10 @@ def screen_stock(
     has_warn    = any(c.status == "WARN"    for c in criteria)
     has_unknown = any(c.status == "UNKNOWN" for c in criteria)
 
-    if has_fail:
+    if kmi:
+        # If officially KMI listed or an Islamic Bank, it is Shariah compliant
+        overall = "COMPLIANT"
+    elif has_fail:
         overall = "NON_COMPLIANT"
     elif has_warn or has_unknown:
         overall = "GRAY_AREA"
