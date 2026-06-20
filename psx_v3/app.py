@@ -347,7 +347,18 @@ if not st.session_state["daily_results"]:
         
     if cached_results:
         st.session_state["daily_results"] = cached_results
-        st.session_state["macro"] = load_latest_macro()
+        macro_data = load_latest_macro()
+        from core.macro_sentiment import NEWSAPI_KEY
+        if macro_data.get("source") == "fallback" and NEWSAPI_KEY and NEWSAPI_KEY != "your_newsapi_key_here":
+            try:
+                from core.macro_sentiment import get_macro_sentiment
+                macro_data = get_macro_sentiment()
+                import json
+                with open("data/macro_cache.json", "w") as f:
+                    json.dump(macro_data, f, indent=4)
+            except Exception:
+                pass
+        st.session_state["macro"] = macro_data
         st.session_state["accuracy"] = load_latest_accuracy()
         st.session_state["alerts"] = get_alerts_from_results(cached_results)
         current_prices = {sym: r["current_price"] for sym, r in cached_results.items() if "current_price" in r}

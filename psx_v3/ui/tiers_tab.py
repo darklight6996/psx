@@ -111,7 +111,19 @@ def render_tiers_tab(results: dict, macro: dict):
         headlines = macro.get("headlines", [])
         if headlines:
             for hl in headlines:
-                st.markdown(f"- {hl}")
+                if isinstance(hl, dict):
+                    title = hl.get("title", "")
+                    url = hl.get("url", "")
+                    src = hl.get("source", "")
+                    score = hl.get("score", 0)
+                    score_str = f" ({'+' if score > 0 else ''}{score})" if score != 0 else ""
+                    src_str = f" · _{src}_" if src else ""
+                    if url:
+                        st.markdown(f"- [{title}]({url}){score_str}{src_str}")
+                    else:
+                        st.markdown(f"- {title}{score_str}{src_str}")
+                else:
+                    st.markdown(f"- {hl}")
         else:
             st.info("No global/macro news headlines currently available.")
 
