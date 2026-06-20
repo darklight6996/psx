@@ -39,6 +39,9 @@ BEARISH_KEYWORDS = [
     "fatf blacklist", "political crisis pakistan", "psx circuit breaker",
     "budget deficit widened", "current account deficit pakistan",
     "pakistan recession", "power outage", "energy crisis pakistan",
+    "rate hike", "inflation rises", "inflation accelerates", "inflation risks",
+    "rupee weakens", "pkr weakens", "imf delay", "circular debt",
+    "reserves dip", "market crash", "stocks tumble", "deficit", "inflation hits"
 ]
 
 BULLISH_KEYWORDS = [
@@ -48,6 +51,9 @@ BULLISH_KEYWORDS = [
     "remittances surge pakistan", "current account surplus pakistan",
     "fatf grey list removed", "fiscal surplus pakistan",
     "pakistan credit rating upgrade",
+    "rate cut", "inflation slows", "inflation eases", "rupee strengthens",
+    "pkr strengthens", "imf package", "gdp growth", "remittances rise",
+    "foreign investment", "market rally", "stocks surge", "surplus"
 ]
 
 
@@ -90,7 +96,7 @@ def get_macro_sentiment(lookback_days: int = 3) -> dict:
         from_dt = (datetime.now() - timedelta(days=lookback_days)).strftime("%Y-%m-%d")
 
         articles = api.get_everything(
-            q="Pakistan stock exchange OR Pakistan economy OR SBP OR IMF Pakistan OR rupee",
+            qintitle='(Pakistan OR Pakistani OR KSE100 OR KSE-100 OR "State Bank of Pakistan") AND (economy OR economic OR finance OR stock OR stocks OR market OR inflation OR IMF OR GDP OR "interest rate" OR rupee)',
             language="en",
             sort_by="publishedAt",
             from_param=from_dt,
