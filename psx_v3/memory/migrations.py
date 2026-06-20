@@ -93,6 +93,34 @@ def apply_migrations():
         conn.commit()
         logger.info("Migration: Created analyst_prediction_log table")
 
+        # 5. Add new columns to pipeline_results table if they don't exist
+        new_columns = [
+            ("company_name", "TEXT"),
+            ("sector", "TEXT"),
+            ("signals", "TEXT"),
+            ("trend", "TEXT"),
+            ("anomaly_flags", "TEXT"),
+            ("anomaly_details", "TEXT"),
+            ("reasons", "TEXT"),
+            ("confidence", "REAL"),
+            ("confidence_label", "TEXT"),
+            ("confidence_components", "TEXT"),
+            ("regime", "TEXT"),
+            ("shariah_report", "TEXT"),
+            ("fundamentals", "TEXT")
+        ]
+        for col_name, col_type in new_columns:
+            try:
+                conn.execute(f"ALTER TABLE pipeline_results ADD COLUMN {col_name} {col_type} DEFAULT NULL")
+                conn.commit()
+                logger.info(f"Migration: Added column {col_name} to pipeline_results")
+            except sqlite3.OperationalError as e:
+                if "duplicate column name" in str(e).lower():
+                    pass
+                else:
+                    logger.error(f"Failed to add column {col_name} to pipeline_results: {e}")
+
+
     except Exception as e:
         logger.exception(f"Migration error: {e}")
     finally:

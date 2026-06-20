@@ -243,29 +243,48 @@ def screen_stock(
         )
     criteria.append(c4)
 
-    # ── 5. Market Cap > Net Liquid Assets ─────────────────────────────────────
+    # ── 5. Price-to-Book / Tradability Check ──────────────────────────────────
+    # AAOIFI/Meezan criterion: market cap must exceed net liquid assets so the
+    # stock has real enterprise value (not just cash).  Current assets / liabilities
+    # are unavailable from yfinance, so we use total_equity (book value) as a
+    # proxy: Price-to-Book > 1.0 confirms enterprise value beyond pure book equity.
+    # P/B < 1.0 is not itself haram, but it means the market values the company
+    # below its book equity — flagged as WARN for manual verification.
     market_cap = fundamentals.get("market_cap")
-    if market_cap and total_assets and total_equity and total_equity > 0:
-        net_liquid = total_assets - (total_equity or 0)
-        if market_cap > net_liquid:
+    if market_cap and total_equity and total_equity > 0:
+        pb_ratio = market_cap / total_equity
+        if pb_ratio >= 1.0:
             c5 = CriterionResult(
-                name="Market Cap vs Net Assets",
+                name="Price-to-Book (Tradability)",
                 status="PASS",
-                note="Market cap exceeds net liquid assets ✓",
-                limit_pct=0.1,
+                value=f"P/B = {pb_ratio:.2f}x",
+                threshold=">= 1.0x",
+                note=f"P/B {pb_ratio:.2f}x — company has enterprise value beyond book equity ✓",
+                limit_pct=min(0.5 / pb_ratio, 1.0),
+            )
+        elif pb_ratio >= 0.5:
+            c5 = CriterionResult(
+                name="Price-to-Book (Tradability)",
+                status="WARN",
+                value=f"P/B = {pb_ratio:.2f}x",
+                threshold=">= 1.0x",
+                note=f"P/B {pb_ratio:.2f}x — trading below book; verify net liquid assets manually",
+                limit_pct=0.6,
             )
         else:
             c5 = CriterionResult(
-                name="Market Cap vs Net Assets",
+                name="Price-to-Book (Tradability)",
                 status="FAIL",
-                note="Market cap below net liquid assets — stock may be trading below book",
+                value=f"P/B = {pb_ratio:.2f}x",
+                threshold=">= 1.0x",
+                note=f"P/B {pb_ratio:.2f}x — deep discount to book; stock may not meet tradability criterion",
                 limit_pct=1.0,
             )
     else:
         c5 = CriterionResult(
-            name="Market Cap vs Net Assets",
+            name="Price-to-Book (Tradability)",
             status="UNKNOWN",
-            note="Insufficient data for market cap / net asset comparison",
+            note="Market cap or book equity data unavailable — manual verification needed",
         )
     criteria.append(c5)
 

@@ -212,7 +212,7 @@ Or use the **Add Investment** form below to record a manual entry.
             margin=dict(t=30,b=30,l=60,r=60),
         )
         fig.add_hline(y=0, line_color="#334155", line_width=1)
-        st.plotly_chart(fig, width="stretch", key="weekly_pnl_chart")
+        st.plotly_chart(fig, use_container_width=True, key="weekly_pnl_chart")
     else:
         st.info("Weekly history will appear here after multiple sessions. Check back next week.")
 
@@ -225,7 +225,7 @@ Or use the **Add Investment** form below to record a manual entry.
         cols_show = ["symbol","company_name","pkr_invested","shares","entry_price",
                      "exit_price","entry_date","exit_date","status","notes"]
         cols_show = [c for c in cols_show if c in df_all.columns]
-        st.dataframe(df_all[cols_show], width="stretch", hide_index=True)
+        st.dataframe(df_all[cols_show], use_container_width=True, hide_index=True)
     else:
         st.info("No investment history yet.")
 

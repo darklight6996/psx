@@ -106,7 +106,7 @@ def render_portfolio_tab():
             margin=dict(t=20,b=20,l=20,r=20),
             legend=dict(orientation="h"),
         )
-        st.plotly_chart(fig_pie, width="stretch", key="portfolio_pie")
+        st.plotly_chart(fig_pie, use_container_width=True, key="portfolio_pie")
 
     # Positions table with remove buttons
     for pos in summary["positions"]:

@@ -40,6 +40,7 @@ def analyse_stock(
     universe_df=None,
     macro_sentiment: str = "neutral",
     force_refresh: bool = False,
+    run_ml: bool = False,
 ) -> dict:
     """
     Deprecated: Main analysis is handled via core.pipeline.run_pipeline_for_stock.
@@ -50,7 +51,6 @@ def analyse_stock(
     
     sym = symbol.upper()
     daily_df = fetch_ohlcv(sym, period="2y", interval="1d", force_refresh=force_refresh)
-    hour_df  = fetch_ohlcv(sym, period="3mo", interval="60m", force_refresh=force_refresh)
     
     if daily_df is None or daily_df.empty:
         return {
@@ -58,7 +58,7 @@ def analyse_stock(
             "error": f"No price data available for {sym}."
         }
         
-    pipeline_res = run_pipeline_for_stock(sym, daily_df)
+    pipeline_res = run_pipeline_for_stock(sym, daily_df, run_ml=run_ml)
     fundamentals = fetch_fundamentals(sym)
     
     # Format backward-compatible dictionary
@@ -75,7 +75,6 @@ def analyse_stock(
         "sector": fundamentals.get("sector", "Unknown"),
         "current_price": pipeline_res["price_at_run"],
         "daily_df": daily_df,
-        "hour_df": hour_df,
         "hqm": {"hqm_score": pipeline_res["final_score"]},
         "technicals": {"signals": pipeline_res["signals"]},
         "regime": pipeline_res["regime"],
@@ -89,8 +88,87 @@ def analyse_stock(
         "confidence_label": pipeline_res["confidence_label"],
         "horizon": pipeline_res["horizon"],
         "council_run": pipeline_res["council_run"],
-        "council_result": pipeline_res["council_result"]
+        "council_result": pipeline_res["council_result"],
+        "news": pipeline_res.get("news", {"verified_facts": [], "retail_sentiment": [], "discarded_noise": []})
     }
+
+def _pipeline_result_to_advisory_dict(db_row: dict) -> dict:
+    """Helper to deserialize a pipeline_results DB row into the large UI dictionary format."""
+    import json
+    sym = db_row["symbol"]
+    try:
+        shariah_report = json.loads(db_row["shariah_report"])
+    except Exception:
+        shariah_report = {"overall_status": "UNKNOWN", "risk_flag": None}
+    
+    try:
+        ml_signals = json.loads(db_row.get("ml_signals", "{}") or "{}")
+    except Exception:
+        ml_signals = {}
+        
+    try:
+        signals = json.loads(db_row.get("signals", "{}") or "{}")
+    except Exception:
+        signals = {}
+        
+    try:
+        reasons = json.loads(db_row.get("reasons", "[]") or "[]")
+    except Exception:
+        reasons = []
+        
+    advisory = {
+        "rating": db_row["verdict"],
+        "score": db_row["final_score"],
+        "composite": db_row["final_score"],
+        "rationale": reasons
+    }
+    
+    return {
+        "symbol": sym,
+        "company_name": sym,
+        "sector": "Unknown",
+        "current_price": db_row["price_at_run"],
+        "daily_df": None,
+        "hour_df": None,
+        "hqm": {"hqm_score": db_row["final_score"]},
+        "technicals": {"signals": signals},
+        "regime": db_row.get("market_regime", "Unknown"),
+        "shariah": shariah_report,
+        "advisory": advisory,
+        "stop_check": None,
+        "ml_signals": ml_signals,
+        "fundamentals": {},
+        "date": db_row["run_date"],
+        "confidence": db_row.get("confidence_score", 0.0),
+        "confidence_label": "N/A",
+        "horizon": "N/A",
+        "council_run": False,
+        "council_result": {}
+    }
+
+def run_price_refresh(symbols: list[str], results_dict: dict) -> dict:
+    """
+    Fetches ONLY live prices/status via psx_live.py, updating the in-memory results dictionary
+    without re-running the ML or scraping yahoo history. Extremely fast.
+    """
+    from core.psx_live import get_live_quotes_batch, get_market_status
+    
+    logger.info(f"Running fast price refresh for {len(symbols)} symbols...")
+    live_data = get_live_quotes_batch(symbols)
+    mkt_status = get_market_status()
+    
+    for sym in symbols:
+        if sym in live_data and live_data[sym]["last_price"] is not None:
+            if sym in results_dict:
+                results_dict[sym]["current_price"] = live_data[sym]["last_price"]
+                # Optional: update advisory logic slightly if price hits stop loss, etc.
+    
+    return {
+        "market_status": mkt_status,
+        "results": results_dict
+    }
+
+
 
 
 def run_daily_analysis(
@@ -105,11 +183,18 @@ def run_daily_analysis(
     logger.info(f"PSX Advisory Agent (Pipeline Route) — Daily Run: {date.today()}")
     logger.info("=" * 60)
 
+    try:
+        from core.background_worker import update_status
+    except ImportError:
+        update_status = None
+
     symbols = list(set((watchlist or DEFAULT_WATCHLIST) + (
         list(get_positions().keys()) if include_portfolio else []
     )))
 
     # Step 1: Accuracy evaluation
+    if update_status:
+        update_status(progress="Evaluating predictions...")
     logger.info("Evaluating yesterday's predictions...")
     current_prices_quick = {}
     for sym in symbols:
@@ -120,6 +205,19 @@ def run_daily_analysis(
     accuracy = evaluate_predictions(current_prices_quick)
     logger.info(f"Accuracy: {accuracy['hit_rate_pct']}% ({accuracy['hits']}/{accuracy['total_checked']})")
 
+    try:
+        from advisor_memory import evaluate_advisor_conversations
+        from advisor_engine import write_lesson
+        adv_eval = evaluate_advisor_conversations(
+            price_getter=get_latest_price,
+            lesson_writer=write_lesson,
+            lookback_days=5,
+        )
+        if adv_eval["evaluated"] > 0:
+            logger.info(f"Advisor evaluation: {adv_eval['evaluated']} conversations evaluated, {adv_eval['lessons_written']} lessons written.")
+    except Exception as e:
+        logger.warning(f"Advisor conversation evaluation failed (non-fatal): {e}")
+
     # Evaluate individual analyst predictions and update weights
     try:
         from memory.analyst_tracker import evaluate_analyst_predictions
@@ -128,37 +226,66 @@ def run_daily_analysis(
         logger.error(f"Failed to evaluate individual analyst predictions: {e}")
 
     # Step 2: Macro sentiment
+    if update_status:
+        update_status(progress="Fetching macro sentiment...")
     logger.info("Fetching macro sentiment...")
     macro = get_macro_sentiment()
     logger.info(f"Macro: {macro['sentiment']} (score: {macro['score']})")
 
+    # Cache macro sentiment to disk
+    try:
+        import json
+        from pathlib import Path
+        Path("data").mkdir(exist_ok=True)
+        with open("data/macro_cache.json", "w") as f:
+            json.dump(macro, f, indent=4)
+        logger.info("Cached macro sentiment to data/macro_cache.json")
+    except Exception as e:
+        logger.warning(f"Failed to cache macro sentiment: {e}")
+
     # Step 3: Ensure ML pooled model exists
+    if update_status:
+        update_status(progress="Ensuring ML pooled features exist...")
     logger.info("Ensuring ML pooled model exists...")
-    dfs = {}
-    for sym in symbols:
-        try:
-            df = fetch_ohlcv(sym, period="2y", interval="1d", force_refresh=force_refresh)
-            if df is not None and not df.empty:
-                dfs[sym] = df
-        except Exception as e:
-            logger.warning(f"Failed to fetch daily EOD data for {sym} to build pooled features: {e}")
 
     try:
         from core.ml_engine import ensure_pooled_model_exists
-        ensure_pooled_model_exists(symbols, dfs)
+        ensure_pooled_model_exists(symbols)
     except Exception as err:
         logger.error(f"Failed to train pooled model: {err}")
 
-    # Step 4: Run pipeline for each stock
+    # Step 4: Run pipeline for each stock in parallel
     results = {}
-    for sym in symbols:
+    total_syms = len(symbols)
+    completed = 0
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    import threading
+    progress_lock = threading.Lock()
+
+    def _worker(sym):
+        nonlocal completed
         try:
-            results[sym] = analyse_stock(sym, force_refresh=force_refresh)
+            res = analyse_stock(sym, force_refresh=force_refresh)
         except Exception as e:
             logger.error(f"Analysis failed for {sym}: {e}")
-            results[sym] = {"symbol": sym, "error": str(e)}
+            res = {"symbol": sym, "error": str(e)}
+        
+        with progress_lock:
+            completed += 1
+            if update_status:
+                update_status(progress=f"Analysing stocks ({completed}/{total_syms}): {sym}...")
+        return sym, res
+
+    logger.info(f"Starting parallel analysis of {total_syms} stocks with 8 worker threads...")
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        futures = {executor.submit(_worker, sym): sym for sym in symbols}
+        for future in as_completed(futures):
+            sym, res = future.result()
+            results[sym] = res
 
     # Step 5: Save snapshot
+    if update_status:
+        update_status(progress="Finalizing summary...")
     snapshot = {}
     for sym, r in results.items():
         if "error" not in r:
@@ -182,10 +309,18 @@ def run_daily_analysis(
             continue
         if r["advisory"]["rating"] == "SELL":
             alerts.append({"type": "SELL", "symbol": sym, "reason": "; ".join(r["advisory"]["rationale"])})
-        if r["shariah"]["risk_flag"]:
+        if r.get("shariah", {}).get("risk_flag"):
             alerts.append({"type": "SHARIAH_RISK", "symbol": sym, "reason": r["shariah"]["risk_flag"]})
 
     logger.info(f"Daily run complete. {len(alerts)} alerts generated.")
+
+    # Persist results to flat-file cache for resilient page-refresh loading (Fix #2)
+    try:
+        from core.result_cache import save_results_to_flatfile
+        save_results_to_flatfile(results)
+        logger.info("Flat-file results cache updated after daily run.")
+    except Exception as _cache_err:
+        logger.warning(f"Failed to update flat-file cache (non-fatal): {_cache_err}")
 
     return {
         "date":          date.today().isoformat(),

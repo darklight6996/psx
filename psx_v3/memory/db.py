@@ -139,6 +139,19 @@ CREATE TABLE IF NOT EXISTS pipeline_results (
     target_hit          INTEGER DEFAULT 0,
     stop_hit            INTEGER DEFAULT 0,
     outcome_status      TEXT DEFAULT 'OPEN', -- OPEN / TARGET_HIT / STOP_HIT / EXPIRED / MANUALLY_CLOSED
+    company_name        TEXT,
+    sector              TEXT,
+    signals             TEXT,        -- JSON
+    trend               TEXT,
+    anomaly_flags       TEXT,        -- JSON
+    anomaly_details     TEXT,        -- JSON
+    reasons             TEXT,        -- JSON
+    confidence          REAL,
+    confidence_label    TEXT,
+    confidence_components TEXT,      -- JSON
+    regime              TEXT,        -- JSON
+    shariah_report      TEXT,        -- JSON
+    fundamentals        TEXT,        -- JSON
     UNIQUE(run_date, symbol)
 );
 

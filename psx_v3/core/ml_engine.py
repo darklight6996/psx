@@ -253,28 +253,37 @@ def predict(symbol: str, snapshot: dict, df: pd.DataFrame) -> dict:
                 "reason": str(e)
             }
 
-    # Build feature row
-    price = snapshot.get("price", 1.0)
-    ma_20 = snapshot.get("ma_20", price)
-    avg_vol = snapshot.get("avg_volume_20d", snapshot.get("volume", 1))
-    low_52w = snapshot.get("low_52w", price)
-    high_52w = snapshot.get("high_52w", price)
-    rng = (high_52w - low_52w) or 1.0
-
-    row = {
-        "rsi":               snapshot.get("rsi", 50.0),
-        "macd":              snapshot.get("macd", 0.0),
-        "macd_signal":       snapshot.get("macd_signal", 0.0),
-        "macd_hist":         snapshot.get("macd", 0.0) - snapshot.get("macd_signal", 0.0),
-        "return_1d":         snapshot.get("return_1d", 0.0),
-        "return_7d":         snapshot.get("return_7d", 0.0),
-        "volatility":        snapshot.get("volatility", 0.01),
-        "vol_percentile_20d":snapshot.get("vol_percentile_20d", 50.0),
-        "price_vs_ma20":     (price - ma_20) / max(ma_20, 1) * 100,
-        "volume_ratio":      snapshot.get("volume", 1) / max(avg_vol, 1),
-        "pct_from_52w_low":  (price - low_52w) / rng * 100,
-        "pct_from_52w_high": (high_52w - price) / rng * 100,
-    }
+    # Build feature row from the DataFrame (H-3 fix: do not use the sparse snapshot dict)
+    # The snapshot dict only has 3 of 12 features populated; derive all features from df
+    feat_df = _build_feature_matrix(df)
+    if feat_df is not None and not feat_df.empty:
+        # Use the most recent row of the full computed feature matrix
+        last_row = feat_df.iloc[-1]
+        row = {f: float(last_row[f]) for f in FEATURES}
+        logger.debug(f"[ML] {symbol}: using DataFrame-derived features for inference")
+    else:
+        # Fallback: sparse snapshot (degraded but not crashing)
+        logger.warning(f"[ML] {symbol}: _build_feature_matrix returned empty — falling back to sparse snapshot")
+        price = snapshot.get("price", 1.0)
+        ma_20 = snapshot.get("ma_20", price)
+        avg_vol = snapshot.get("avg_volume_20d", snapshot.get("volume", 1))
+        low_52w = snapshot.get("low_52w", price)
+        high_52w = snapshot.get("high_52w", price)
+        rng = (high_52w - low_52w) or 1.0
+        row = {
+            "rsi":               snapshot.get("rsi", 50.0),
+            "macd":              snapshot.get("macd", 0.0),
+            "macd_signal":       snapshot.get("macd_signal", 0.0),
+            "macd_hist":         snapshot.get("macd", 0.0) - snapshot.get("macd_signal", 0.0),
+            "return_1d":         snapshot.get("return_1d", 0.0),
+            "return_7d":         snapshot.get("return_7d", 0.0),
+            "volatility":        snapshot.get("volatility", 0.01),
+            "vol_percentile_20d":snapshot.get("vol_percentile_20d", 50.0),
+            "price_vs_ma20":     (price - ma_20) / max(ma_20, 1) * 100,
+            "volume_ratio":      snapshot.get("volume", 1) / max(avg_vol, 1),
+            "pct_from_52w_low":  (price - low_52w) / rng * 100,
+            "pct_from_52w_high": (high_52w - price) / rng * 100,
+        }
 
     X_live = np.array([[row[f] for f in FEATURES]])
 
@@ -413,7 +422,7 @@ def train_pooled_model(symbols: list[str], dfs: dict[str, pd.DataFrame]) -> dict
     return {"status": "trained", **meta}
 
 
-def ensure_pooled_model_exists(symbols: list[str], dfs: dict[str, pd.DataFrame]) -> dict:
+def ensure_pooled_model_exists(symbols: list[str]) -> dict:
     pooled_rf_path = MODELS_DIR / "pooled_rf.joblib"
     pooled_meta_path = MODELS_DIR / "pooled_meta.json"
 
@@ -430,4 +439,14 @@ def ensure_pooled_model_exists(symbols: list[str], dfs: dict[str, pd.DataFrame])
             logger.warning(f"[ML] Failed to read pooled model age: {e}. Retraining...")
 
     logger.info("[ML] Training pooled model on watchlist data...")
+    from core.data_engine import fetch_ohlcv
+    dfs = {}
+    for sym in symbols:
+        try:
+            df = fetch_ohlcv(sym, period="2y", interval="1d", force_refresh=False)
+            if df is not None and not df.empty:
+                dfs[sym] = df
+        except Exception as e:
+            logger.warning(f"[ML] Failed to fetch daily EOD data for {sym} to build pooled features: {e}")
+
     return train_pooled_model(symbols, dfs)

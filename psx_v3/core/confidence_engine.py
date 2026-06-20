@@ -196,19 +196,8 @@ def compute_confidence(
     if anomaly_flags is None:
         anomaly_flags = []
 
-    # HOLD verdicts always get moderate confidence (no strong action)
-    if verdict == "HOLD":
-        return {
-            "confidence_score": 45.0,
-            "confidence_label": "MODERATE",
-            "components": {
-                "signal_agreement": 50.0,
-                "anomaly_strength": 30.0,
-                "historical_accuracy": 50.0,
-                "ml_probability": 50.0,
-                "trend_strength": 40.0,
-            },
-        }
+    # All verdicts (including HOLD) go through the same component calculation
+    # so confidence is meaningfully differentiated across all stocks
 
     # Compute components
     components = {

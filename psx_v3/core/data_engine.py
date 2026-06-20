@@ -82,26 +82,49 @@ def fetch_ohlcv(
         except Exception:
             pass
 
+    df = pd.DataFrame()
+    yf_success = False
     try:
         ticker_obj = yf.Ticker(ticker)
         df = ticker_obj.history(period=period, interval=interval, auto_adjust=True)
-
-        if df.empty:
-            logger.warning(f"No data returned for {ticker} ({period}/{interval})")
-            return None
-
-        # Clean up
-        df.index = pd.to_datetime(df.index, utc=True).tz_convert("Asia/Karachi")
-        df = df[["Open", "High", "Low", "Close", "Volume"]].dropna()
-        df = df[df["Volume"] > 0]
-
-        df.to_parquet(cache_file)
-        logger.info(f"Fetched {len(df)} rows for {ticker} ({period}/{interval})")
-        return df
-
+        if not df.empty:
+            yf_success = True
     except Exception as e:
-        logger.error(f"Failed to fetch {ticker}: {e}")
+        logger.warning(f"yfinance failed for {ticker}: {e}")
+
+    if not yf_success or df.empty:
+        logger.info(f"yfinance data unavailable for {ticker}. Trying browser fallback...")
+        try:
+            from core.browser_psx_reader import fetch_data_via_browser
+            df = fetch_data_via_browser(symbol, period=period)
+        except Exception as e:
+            logger.error(f"Browser fallback failed to run for {symbol}: {e}")
+            df = pd.DataFrame()
+
+    if df.empty:
+        logger.warning(f"No data returned for {ticker} ({period}/{interval}) from both yfinance and browser.")
         return None
+
+    try:
+        # Clean up index to be datetime with Asia/Karachi timezone
+        if not isinstance(df.index, pd.DatetimeIndex):
+            df.index = pd.to_datetime(df.index)
+        if df.index.tz is None:
+            df.index = df.index.tz_localize("UTC").tz_convert("Asia/Karachi")
+        else:
+            df.index = df.index.tz_convert("Asia/Karachi")
+    except Exception as e:
+        logger.warning(f"Timezone conversion failed for {ticker}: {e}")
+
+    df = df[["Open", "High", "Low", "Close", "Volume"]].dropna()
+    df = df[df["Volume"] >= 0]
+
+    if df.empty:
+        return None
+
+    df.to_parquet(cache_file)
+    logger.info(f"Fetched and cached {len(df)} rows for {ticker} ({period}/{interval})")
+    return df
 
 
 def fetch_multi_timeframe(symbol: str) -> dict[str, Optional[pd.DataFrame]]:

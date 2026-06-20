@@ -1,0 +1,49 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+.venv/
+venv/
+ENV/
+
+# Streamlit
+.streamlit/
+
+# Database and caches (untrack dynamic/cache files)
+psx_v3/data/cache/
+psx_v3/data/psx_memory.db
+psx_v3/data/live_index_cache.json
+psx_v3/data/analysis_status.json
+psx_v3/data/last_results_cache.json
+psx_v3/data/macro_cache.json
+psx_v3/data/memory_store.json
+psx_v3/data/last_results.json
+psx_v3/data/signal_cache.json
+
+# Local env files
+psx_v3/.env
+psx_v3/.env.private
+
+# Reference and local backup files
+files.txt
+files/

@@ -20,7 +20,7 @@ from typing import Optional
 
 import pandas as pd
 from memory.db import get_conn
-from core.data_engine import fetch_ohlcv
+from core.data_engine import fetch_ohlcv, fetch_fundamentals
 from core.scoring_engine import score_stock
 from core.shariah_engine import screen_stock
 from core.confidence_engine import compute_confidence
@@ -77,7 +77,7 @@ Signals: {json.dumps(t1_result.get('signals', {}))}
     }
 
 
-def run_pipeline_for_stock(symbol: str, df: pd.DataFrame, force_council: bool = False) -> dict:
+def run_pipeline_for_stock(symbol: str, df: pd.DataFrame, force_council: bool = False, run_ml: bool = False) -> dict:
     """Runs the full 3-tiered pipeline for a single stock and logs results to DB."""
     symbol = symbol.upper()
     start_time = time.time()
@@ -85,12 +85,56 @@ def run_pipeline_for_stock(symbol: str, df: pd.DataFrame, force_council: bool = 
     # ----------------- TIER 1: Quant Screen -----------------
     price_now = float(df["Close"].iloc[-1])
     
-    # ML inference (if minimum 200 rows guard passed)
-    ml_res = ml_predict(symbol, {
-        "price": price_now,
-        "rsi": float(df["Close"].pct_change().rolling(14).mean().iloc[-1] * 100), # placeholder check
-        "volume": float(df["Volume"].iloc[-1]),
-    }, df)
+    if len(df) < 200:
+        logger.info(f"[Pipeline] {symbol} has < 200 rows. Routing to New Listings handler.")
+        from core.new_listings import analyze_new_listing
+        fundamentals = fetch_fundamentals(symbol)
+        nl_res = analyze_new_listing(symbol, df, fundamentals)
+        # Construct pipeline_res format for new listings
+        pipeline_res = {
+            "symbol": symbol,
+            "company_name": fundamentals.get("company_name", symbol),
+            "sector": fundamentals.get("sector", "Unknown"),
+            "price_at_run": price_now,
+            "verdict": nl_res["verdict"],
+            "final_score": nl_res["final_score"],
+            "technical_score": nl_res["technical_score"],
+            "signals": nl_res["signals"],
+            "trend": nl_res["trend"],
+            "regime": nl_res["regime"],
+            "anomaly_flags": nl_res["anomaly_flags"],
+            "anomaly_details": nl_res["anomaly_details"],
+            "score_breakdown": nl_res["score_breakdown"],
+            "reasons": nl_res["reasons"],
+            "shariah_status": "UNKNOWN",
+            "shariah_report": {},
+            "confidence": nl_res["confidence"],
+            "confidence_label": nl_res["confidence_label"],
+            "confidence_components": nl_res["confidence_components"],
+            "horizon": nl_res["horizon"],
+            "ml_signals": nl_res["ml_signals"],
+            "council_run": False,
+            "council_result": None,
+            "news": {"verified_facts": [], "retail_sentiment": [], "discarded_noise": []}
+        }
+        return pipeline_res
+
+    # ML inference (if run_ml is True and minimum 200 rows guard passed)
+    ml_res = {}
+    if run_ml:
+        ml_res = ml_predict(symbol, {
+            "price": price_now,
+            "rsi": float(df["Close"].pct_change().rolling(14).mean().iloc[-1] * 100) if len(df) >= 14 else 50.0,
+            "volume": float(df["Volume"].iloc[-1]),
+        }, df)
+    else:
+        ml_res = {
+            "direction": "UNKNOWN",
+            "direction_proba": {"UP": 0.5, "NOT_UP": 0.5},
+            "ml_signal_reliable": False,
+            "status": "skipped",
+            "reason": "Selective ML disabled"
+        }
     
     # Scoring
     t1_score = score_stock(
@@ -102,8 +146,11 @@ def run_pipeline_for_stock(symbol: str, df: pd.DataFrame, force_council: bool = 
         announcements=[] # TODO: announcements
     )
     
+    # Fetch fundamentals
+    fundamentals = fetch_fundamentals(symbol)
+
     # Shariah Screen
-    shariah_rep = screen_stock(symbol, fundamentals={}, sector=None, industry=None)
+    shariah_rep = screen_stock(symbol, fundamentals=fundamentals, sector=fundamentals.get("sector"), industry=fundamentals.get("industry"))
     
     # Mathematical Confidence
     adx_val = t1_score.get("regime", {}).get("adx_value", 20.0)
@@ -130,6 +177,8 @@ def run_pipeline_for_stock(symbol: str, df: pd.DataFrame, force_council: bool = 
     # Construct complete Tier 1 output package
     pipeline_res = {
         "symbol": symbol,
+        "company_name": fundamentals.get("company_name", symbol),
+        "sector": fundamentals.get("sector", "Unknown"),
         "price_at_run": price_now,
         "verdict": t1_score["verdict"],
         "final_score": t1_score["final_score"],
@@ -148,11 +197,47 @@ def run_pipeline_for_stock(symbol: str, df: pd.DataFrame, force_council: bool = 
         "confidence_components": conf_res["components"],
         "horizon": hor_res,
         "ml_signals": ml_res,
+        "fundamentals": fundamentals,
         "council_run": 0,
         "council_result": None,
         "challenge_result": None
     }
     
+    # ── News Enrichment: X Feed + Google Search ──────────────────────────────
+    try:
+        from core.x_feed import fetch_recent_tweets
+        from core.news_filter import filter_and_format_news
+        tweets = fetch_recent_tweets(f"{symbol} PSX")
+        formatted_news = [
+            {
+                "source": "X",
+                "content": t["text"],
+                "url": f"https://x.com/user/status/{t['id']}",
+                "user": "X User",
+                "sentiment": "neutral",
+            }
+            for t in tweets
+        ]
+        filtered_news = filter_and_format_news(formatted_news)
+        pipeline_res["news"] = filtered_news
+    except Exception as e:
+        logger.warning(f"[Pipeline] X news fetch failed for {symbol}: {e}")
+        pipeline_res["news"] = {"verified_facts": [], "retail_sentiment": [], "discarded_noise": []}
+
+    # Google Search enrichment (additive — no crash risk)
+    try:
+        from core.google_search import search_stock_news, format_search_results_for_llm
+        company_name = fundamentals.get("company_name", "") if fundamentals else ""
+        gsearch_results = search_stock_news(symbol, company_name, lookback_days=7)
+        pipeline_res["google_news"] = gsearch_results
+        # Also expose as text for LLM consumption
+        pipeline_res["google_news_summary"] = format_search_results_for_llm(gsearch_results, max_chars=2000)
+    except Exception as e:
+        logger.debug(f"[Pipeline] Google search skipped for {symbol}: {e}")
+        pipeline_res["google_news"] = []
+        pipeline_res["google_news_summary"] = ""
+
+
     # ----------------- TIER 1.5: Spotter -----------------
     has_anomalies = len(pipeline_res["anomaly_flags"]) > 0
     high_score = pipeline_res["final_score"] >= 50
@@ -170,7 +255,7 @@ def run_pipeline_for_stock(symbol: str, df: pd.DataFrame, force_council: bool = 
             symbol=symbol,
             snapshot_data={
                 "price": price_now,
-                "fundamentals": {},
+                "fundamentals": fundamentals,
                 "indicators": t1_score["signals"]
             },
             shariah_engine_verdict=shariah_rep.overall_status,
@@ -220,9 +305,25 @@ def save_pipeline_result(res: dict, duration_s: float):
             "confidence_components": res.get("confidence_components")
         })
         entry_exit = json.dumps(res.get("horizon", {}))
+
+        # New fields serialization
+        company_name = res.get("company_name", res["symbol"])
+        sector = res.get("sector", "Unknown")
+        signals_json = json.dumps(res.get("signals", {}))
+        trend = res.get("trend", "")
+        anomaly_flags_json = json.dumps(res.get("anomaly_flags", []))
+        anomaly_details_json = json.dumps(res.get("anomaly_details", []))
+        reasons_json = json.dumps(res.get("reasons", []))
+        confidence = res.get("confidence")
+        confidence_label = res.get("confidence_label", "MODERATE")
+        confidence_components_json = json.dumps(res.get("confidence_components", {}))
+        regime_json = json.dumps(res.get("regime", {}))
+        shariah_report_json = json.dumps(res.get("shariah_report", {}))
+        fundamentals_json = json.dumps(res.get("fundamentals", {}))
         
         # Expiry is 14 calendar days from now by default
-        expiry_date = (datetime.now() + pd.Timedelta(days=14)).isoformat()
+        from datetime import timedelta as _timedelta
+        expiry_date = (datetime.now() + _timedelta(days=14)).isoformat()
         
         if exists:
             conn.execute("""
@@ -230,13 +331,21 @@ def save_pipeline_result(res: dict, duration_s: float):
                 SET run_timestamp = ?, final_verdict = ?, final_score = ?,
                     vote_breakdown = ?, ml_signals = ?, council_result = ?,
                     risk_matrix = ?, shariah_status = ?, entry_exit = ?,
-                    price_at_run = ?, council_run = ?, run_duration_s = ?
+                    price_at_run = ?, council_run = ?, run_duration_s = ?,
+                    company_name = ?, sector = ?, signals = ?, trend = ?,
+                    anomaly_flags = ?, anomaly_details = ?, reasons = ?,
+                    confidence = ?, confidence_label = ?, confidence_components = ?,
+                    regime = ?, shariah_report = ?, fundamentals = ?
                 WHERE id = ?
             """, (
                 now_str, res["verdict"], res["final_score"],
                 vote_breakdown, ml_signals_json, council_result_json,
                 risk_matrix, res["shariah_status"], entry_exit,
                 res["price_at_run"], res["council_run"], duration_s,
+                company_name, sector, signals_json, trend,
+                anomaly_flags_json, anomaly_details_json, reasons_json,
+                confidence, confidence_label, confidence_components_json,
+                regime_json, shariah_report_json, fundamentals_json,
                 exists["id"]
             ))
         else:
@@ -246,12 +355,79 @@ def save_pipeline_result(res: dict, duration_s: float):
                     vote_breakdown, ml_signals, council_result, risk_matrix,
                     shariah_status, entry_exit, price_at_run, council_run,
                     run_duration_s, recommendation_created_at, recommendation_expiry_at,
-                    target_hit, stop_hit, outcome_status
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 'OPEN')
+                    target_hit, stop_hit, outcome_status,
+                    company_name, sector, signals, trend,
+                    anomaly_flags, anomaly_details, reasons,
+                    confidence, confidence_label, confidence_components,
+                    regime, shariah_report, fundamentals
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 'OPEN', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 run_date_str, now_str, res["symbol"], res["verdict"], res["final_score"],
                 vote_breakdown, ml_signals_json, council_result_json, risk_matrix,
                 res["shariah_status"], entry_exit, res["price_at_run"], res["council_run"],
-                duration_s, now_str, expiry_date
+                duration_s, now_str, expiry_date,
+                company_name, sector, signals_json, trend,
+                anomaly_flags_json, anomaly_details_json, reasons_json,
+                confidence, confidence_label, confidence_components_json,
+                regime_json, shariah_report_json, fundamentals_json
             ))
         conn.commit()
+
+
+def load_pipeline_results(run_date: Optional[str] = None) -> list[dict]:
+    """Read and deserialise all pipeline results for a given date (or the latest date)."""
+    with get_conn() as conn:
+        if not run_date:
+            row = conn.execute("SELECT MAX(run_date) FROM pipeline_results").fetchone()
+            if not row or not row[0]:
+                return []
+            run_date = row[0]
+            
+        rows = conn.execute("""
+            SELECT * FROM pipeline_results WHERE run_date = ?
+        """, (run_date,)).fetchall()
+        
+    results = []
+    for r in rows:
+        row = dict(r)
+        
+        # Deserialise JSON columns
+        def safe_json(val, default):
+            if not val:
+                return default
+            try:
+                return json.loads(val)
+            except Exception:
+                return default
+                
+        pipeline_res = {
+            "symbol": row["symbol"],
+            "date": row["run_date"],
+            "company_name": row.get("company_name") or row["symbol"],
+            "sector": row.get("sector") or "Unknown",
+            "price_at_run": row["price_at_run"],
+            "verdict": row["final_verdict"],
+            "final_score": row["final_score"],
+            "technical_score": row["final_score"], # fallback
+            "signals": safe_json(row.get("signals"), {}),
+            "trend": row.get("trend") or "",
+            "regime": safe_json(row.get("regime"), {}),
+            "anomaly_flags": safe_json(row.get("anomaly_flags"), []),
+            "anomaly_details": safe_json(row.get("anomaly_details"), []),
+            "score_breakdown": safe_json(row["vote_breakdown"], {}),
+            "reasons": safe_json(row.get("reasons"), []),
+            "shariah_status": row["shariah_status"],
+            "shariah_report": safe_json(row.get("shariah_report"), {}),
+            "confidence": row.get("confidence") or 50.0,
+            "confidence_label": row.get("confidence_label") or "MODERATE",
+            "confidence_components": safe_json(row.get("confidence_components"), {}),
+            "horizon": safe_json(row["entry_exit"], {}),
+            "ml_signals": safe_json(row["ml_signals"], {}),
+            "fundamentals": safe_json(row.get("fundamentals"), {}),
+            "council_run": row["council_run"],
+            "council_result": safe_json(row["council_result"], {}),
+            "challenge_result": safe_json(row.get("challenge_result"), {})
+        }
+        results.append(pipeline_res)
+    return results
+

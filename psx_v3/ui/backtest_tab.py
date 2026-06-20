@@ -143,7 +143,7 @@ def render_backtest_tab():
             legend=dict(orientation="h", yanchor="bottom", y=1.02),
             margin=dict(t=30, b=30, l=80, r=20),
         )
-        st.plotly_chart(fig, width="stretch", key="equity_curve_chart")
+        st.plotly_chart(fig, use_container_width=True, key="equity_curve_chart")
 
     # ── Trade log ─────────────────────────────────────────────────────────────
     with st.expander(f"📋 Trade Log ({len(results['trade_log'])} trades)"):
@@ -152,6 +152,6 @@ def render_backtest_tab():
             trade_df["pnl"] = trade_df["pnl"].apply(
                 lambda x: f"PKR {x:+,.0f}" if x is not None else "—"
             )
-            st.dataframe(trade_df, width="stretch", hide_index=True)
+            st.dataframe(trade_df, use_container_width=True, hide_index=True)
 
     st.info(results.get("survivorship_bias_warning", ""))

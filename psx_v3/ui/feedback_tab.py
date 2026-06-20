@@ -9,13 +9,18 @@ import streamlit as st
 import pandas as pd
 from memory.db import get_conn
 from memory.feedback_analyser import log_user_feedback, analyze_feedback_and_propose, approve_proposal, reject_proposal
+from ui.outcome_review_tab import render_outcome_review
 
 def render_feedback_tab(results: dict):
     st.markdown("### 🎛️ Feedback & Calibration Control Room")
     st.markdown("_Submit corrections on system verdicts and manage calibration proposals._")
-    
-    # ── Section 1: Submit Correction / Feedback ──
-    st.markdown("#### 📝 Submit Verdict Correction")
+
+    # ── Section 0: Quick Outcome Review (NEW — simplified 1-tap review) ──
+    render_outcome_review()
+
+    st.markdown("---")
+    st.markdown("#### 📝 Manual Verdict Correction _(Advanced)_")
+    st.caption("Use this only for nuanced corrections with extra context (news type, pattern, notes).")
     
     valid_symbols = [sym for sym, r in results.items() if "error" not in r]
     if not valid_symbols:
@@ -121,6 +126,6 @@ def render_feedback_tab(results: dict):
         
     if approved:
         df_app = pd.DataFrame([dict(a) for a in approved])
-        st.dataframe(df_app[["proposal_date", "signal_name", "sector_context", "current_weight", "proposed_weight", "approved_at"]], width="stretch", hide_index=True)
+        st.dataframe(df_app[["proposal_date", "signal_name", "sector_context", "current_weight", "proposed_weight", "approved_at"]], use_container_width=True, hide_index=True)
     else:
         st.caption("No custom calibrations active. The system is running on default weights.")

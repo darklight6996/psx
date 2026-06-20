@@ -68,7 +68,7 @@ def render_rankings_table(results: dict) -> pd.DataFrame:
         ml_dir_label = {"UP": "🟢 UP", "NOT_UP": "🔴 NOT_UP", "DOWN": "🔴 DOWN", "SIDEWAYS": "🟡 SIDE"}.get(ml_dir, ml_dir)
 
         rating = r["advisory"]["rating"]
-        shariah_status = r["shariah"]["overall_status"]
+        shariah_status = r["shariah"].get("overall_status", "UNKNOWN")
         
         # SortKey mapping: BUY+COMPLIANT=1, BUY+GRAY_AREA/REVIEW=2, HOLD=3, SELL=4
         if rating == "BUY":
@@ -217,7 +217,7 @@ def render_stock_detail(symbol: str, result: dict):
     # ── Shariah Compliance ───────────────────────────────────────────────────
     st.markdown("#### ☽ Shariah Compliance")
 
-    sc_status = shariah["overall_status"]
+    sc_status = shariah.get("overall_status", "UNKNOWN")
     sc_color  = {"COMPLIANT": "#4ade80", "GRAY_AREA": "#fbbf24", "NON_COMPLIANT": "#f87171"}.get(sc_status, "#94a3b8")
     sc_bg     = {"COMPLIANT": "#0f4c2a", "GRAY_AREA": "#3a2c0a",  "NON_COMPLIANT": "#4a1818"}.get(sc_status, "#334155")
     kmi_check = shariah.get("kmi_check", {})
@@ -360,6 +360,34 @@ def render_stock_detail(symbol: str, result: dict):
 
 def render_predictions_tab(results: dict, accuracy: dict):
     st.markdown("### 📈 Predictions & Rankings")
+    
+    with st.expander("⚡ Quick Analyse Stock", expanded=False):
+        quick_sym = st.text_input("Enter symbol:", placeholder="e.g. SYS", key="quick_sym_pred").upper().strip()
+        if st.button("Analyse →", key="quick_btn_pred", use_container_width=True) and quick_sym:
+            from agent import analyse_stock
+            with st.spinner(f"Analysing {quick_sym}..."):
+                macro = st.session_state.get("macro", {}).get("sentiment", "neutral")
+                res = analyse_stock(quick_sym, macro_sentiment=macro, force_refresh=True, run_ml=True)
+                if "error" not in res:
+                    st.session_state["daily_results"][quick_sym] = res
+                    st.session_state["last_failed_quick_sym_pred"] = None
+                    st.success(f"{quick_sym} analysed! Rating: {res['advisory']['rating']}")
+                    # Update cache
+                    from core.result_cache import save_results_to_flatfile
+                    save_results_to_flatfile(st.session_state["daily_results"])
+                    st.rerun()
+                else:
+                    st.error(res["error"])
+                    st.session_state["last_failed_quick_sym_pred"] = quick_sym
+                    st.rerun()
+
+        if st.session_state.get("last_failed_quick_sym_pred"):
+            failed_sym = st.session_state["last_failed_quick_sym_pred"]
+            st.warning(f"Failed to fetch data for {failed_sym}. If this is a new listing or not on yfinance, click below to try browser fallback.")
+            if st.button(f"🔌 Run JS Bridge Fallback for {failed_sym}", key="run_js_bridge_pred"):
+                st.session_state["trigger_js_bridge_for"] = failed_sym
+                st.session_state["last_failed_quick_sym_pred"] = None
+                st.rerun()
 
     # Accuracy tracker
     if accuracy and accuracy["total_checked"] > 0:
@@ -376,7 +404,7 @@ def render_predictions_tab(results: dict, accuracy: dict):
 
     # Rankings table
     df_rank = render_rankings_table(results)
-    st.dataframe(df_rank, width="stretch", hide_index=True,
+    st.dataframe(df_rank, use_container_width=True, hide_index=True,
                  column_config={
                      "Score":      st.column_config.ProgressColumn("Score", min_value=0, max_value=100),
                      "Confidence": st.column_config.ProgressColumn("Confidence", min_value=0, max_value=100,

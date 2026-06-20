@@ -161,7 +161,8 @@ def compute_stage1_score(df: pd.DataFrame) -> dict:
     score_components.append(("rsi", rsi_score, 0.25))
 
     # Bollinger contribution (20%)
-    bb_score = bb_pct_b * 100
+    # Mean-reversion interpretation: price near lower band (oversold) = bullish, upper band = bearish
+    bb_score = (1.0 - bb_pct_b) * 100
     bb_score = max(0, min(100, bb_score))
     score_components.append(("bollinger", bb_score, 0.20))
 

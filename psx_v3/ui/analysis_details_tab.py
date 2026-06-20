@@ -12,6 +12,34 @@ import pandas as pd
 def render_analysis_details_tab(results: dict):
     st.markdown("### 🔍 Recommendation Deep Dive (Why Recommended?)")
     
+    with st.expander("⚡ Quick Analyse Stock", expanded=False):
+        quick_sym = st.text_input("Enter symbol:", placeholder="e.g. SYS", key="quick_sym_det").upper().strip()
+        if st.button("Analyse →", key="quick_btn_det", use_container_width=True) and quick_sym:
+            from agent import analyse_stock
+            with st.spinner(f"Analysing {quick_sym}..."):
+                macro = st.session_state.get("macro", {}).get("sentiment", "neutral")
+                res = analyse_stock(quick_sym, macro_sentiment=macro, force_refresh=True, run_ml=True)
+                if "error" not in res:
+                    st.session_state["daily_results"][quick_sym] = res
+                    st.session_state["last_failed_quick_sym_det"] = None
+                    st.success(f"{quick_sym} analysed! Rating: {res['advisory']['rating']}")
+                    from core.result_cache import save_results_to_flatfile
+                    save_results_to_flatfile(st.session_state["daily_results"])
+                    st.rerun()
+                else:
+                    st.error(res["error"])
+                    st.session_state["last_failed_quick_sym_det"] = quick_sym
+                    st.rerun()
+
+        if st.session_state.get("last_failed_quick_sym_det"):
+            failed_sym = st.session_state["last_failed_quick_sym_det"]
+            st.warning(f"Failed to fetch data for {failed_sym}. If this is a new listing or not on yfinance, click below to try browser fallback.")
+            if st.button(f"🔌 Run JS Bridge Fallback for {failed_sym}", key="run_js_bridge_det"):
+                st.session_state["trigger_js_bridge_for"] = failed_sym
+                st.session_state["last_failed_quick_sym_det"] = None
+                st.rerun()
+
+    
     valid_symbols = [sym for sym, r in results.items() if "error" not in r]
     if not valid_symbols:
         st.warning("No valid analysis results available. Run the daily analysis first.")

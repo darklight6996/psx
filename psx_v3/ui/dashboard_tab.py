@@ -244,7 +244,7 @@ def render_dashboard_tab(daily_results: dict, macro: dict, alerts: list, port_su
             df_pos["pnl_color"] = df_pos["pnl"].apply(lambda x: "🟢" if x >= 0 else "🔴")
             st.dataframe(
                 df_pos[["ticker","entry_price","current_price","shares","cost_basis","current_value","pnl","pnl_pct"]],
-                width="stretch", hide_index=True,
+                use_container_width=True, hide_index=True,
             )
 
     # ── Stock chart viewer & Live Order Book Ratios ───────────────────────────
@@ -305,9 +305,9 @@ def render_dashboard_tab(daily_results: dict, macro: dict, alerts: list, port_su
         df_chart = fetch_ohlcv(selected, period=period, interval="1d")
         if df_chart is not None and not df_chart.empty:
             st.plotly_chart(make_candlestick_chart(df_chart, selected, show_ind),
-                           width="stretch", key=f"candle_{selected}")
+                           use_container_width=True, key=f"candle_{selected}")
             st.plotly_chart(make_volume_chart(df_chart, selected),
-                           width="stretch", key=f"vol_{selected}")
+                           use_container_width=True, key=f"vol_{selected}")
         else:
             st.error(f"Could not load chart data for {selected}")
 
@@ -328,4 +328,4 @@ def render_dashboard_tab(daily_results: dict, macro: dict, alerts: list, port_su
                 )
                 fig_1h.update_xaxes(gridcolor="#1e293b")
                 fig_1h.update_yaxes(gridcolor="#1e293b")
-                st.plotly_chart(fig_1h, width="stretch", key=f"1h_{selected}")
+                st.plotly_chart(fig_1h, use_container_width=True, key=f"1h_{selected}")
