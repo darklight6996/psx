@@ -26,6 +26,8 @@ sys.path.insert(0, str(PROJECT_ROOT))
 os.chdir(PROJECT_ROOT)
 
 import streamlit as st
+from dotenv import load_dotenv
+load_dotenv(override=True)
 
 st.set_page_config(
     page_title="PSX Advisory Agent v3",

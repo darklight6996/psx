@@ -75,28 +75,19 @@ def _score_text(text: str) -> int:
 
 
 def get_macro_sentiment(lookback_days: int = 3) -> dict:
-    """
-    Fetch recent Pakistan financial news and return sentiment.
-
-    Returns:
-        {
-          "sentiment":    "bullish" | "neutral" | "bearish",
-          "score":        int,
-          "headlines":    [ { "title": ..., "score": ... }, ... ],
-          "source":       "newsapi" | "fallback",
-          "summary":      "..."
-        }
-    """
-    if not NEWSAPI_KEY or NEWSAPI_KEY == "your_newsapi_key_here":
+    # Re-read key at call time so .env values are always picked up
+    api_key = os.getenv("NEWSAPI_KEY", "").strip()
+    if not api_key or api_key == "your_newsapi_key_here":
         return _fallback_sentiment()
 
     try:
         from newsapi import NewsApiClient
-        api  = NewsApiClient(api_key=NEWSAPI_KEY)
+        from newsapi.newsapi_exception import NewsAPIException
+        api = NewsApiClient(api_key=api_key)
         from_dt = (datetime.now() - timedelta(days=lookback_days)).strftime("%Y-%m-%d")
 
         articles = api.get_everything(
-            qintitle='(Pakistan OR Pakistani OR KSE100 OR KSE-100 OR "State Bank of Pakistan") AND (economy OR economic OR finance OR stock OR stocks OR market OR inflation OR IMF OR GDP OR "interest rate" OR rupee)',
+            q='Pakistan AND (economy OR economic OR finance OR stock OR stocks OR market OR inflation OR IMF OR GDP OR "interest rate" OR rupee)',
             language="en",
             sort_by="publishedAt",
             from_param=from_dt,
@@ -104,33 +95,33 @@ def get_macro_sentiment(lookback_days: int = 3) -> dict:
         )
 
         total_score = 0
-        headlines   = []
+        headlines = []
 
         for art in articles.get("articles", []):
-            text  = (art.get("title", "") + " " + (art.get("description") or ""))
+            text = (art.get("title", "") + " " + (art.get("description") or ""))
             score = _score_text(text)
-            if score != 0:
-                headlines.append({
-                    "title":     art.get("title", ""),
-                    "source":    art.get("source", {}).get("name", ""),
-                    "url":       art.get("url", ""),
-                    "score":     score,
-                    "published": art.get("publishedAt", ""),
-                })
+            
+            # Always append the headline, so the user knows we are actually fetching news!
+            headlines.append({
+                "title":     art.get("title", ""),
+                "source":    art.get("source", {}).get("name", ""),
+                "url":       art.get("url", ""),
+                "score":     score,
+                "published": art.get("publishedAt", ""),
+            })
             total_score += score
 
-        # Determine sentiment
         if total_score >= 3:
             sentiment = "bullish"
-            summary   = f"Macro sentiment is BULLISH (+{total_score}). Positive news flow around Pakistan economy."
+            summary = f"Macro sentiment BULLISH (+{total_score}). Positive news flow around Pakistan economy."
         elif total_score <= -3:
             sentiment = "bearish"
-            summary   = f"Macro sentiment is BEARISH ({total_score}). Negative news flow — consider holding or reducing positions."
+            summary = f"Macro sentiment BEARISH ({total_score}). Negative news flow — consider reducing positions."
         else:
             sentiment = "neutral"
-            summary   = f"Macro sentiment is NEUTRAL (score: {total_score}). No strong directional bias."
+            summary = f"Macro sentiment NEUTRAL (score: {total_score}). No strong directional bias."
 
-        # Sort headlines by absolute score
+        # Sort by absolute score (highest impact first), then fallback to original order
         headlines.sort(key=lambda h: abs(h["score"]), reverse=True)
 
         return {
@@ -142,11 +133,23 @@ def get_macro_sentiment(lookback_days: int = 3) -> dict:
         }
 
     except ImportError:
-        logger.warning("newsapi-python not installed. Run: pip install newsapi-python")
-        return _fallback_sentiment()
+        logger.error("newsapi-python not installed.")
+        return {
+            "sentiment": "error",
+            "score": 0,
+            "headlines": [],
+            "source": "newsapi",
+            "summary": "Error: newsapi-python not installed. Run: pip install newsapi-python"
+        }
     except Exception as e:
-        logger.warning(f"NewsAPI call failed: {e}")
-        return _fallback_sentiment()
+        logger.error(f"NewsAPI call failed: {type(e).__name__}: {e}")
+        return {
+            "sentiment": "error",
+            "score": 0,
+            "headlines": [],
+            "source": "newsapi",
+            "summary": f"NewsAPI call failed: {type(e).__name__}: {str(e)}"
+        }
 
 
 def _fallback_sentiment() -> dict:
