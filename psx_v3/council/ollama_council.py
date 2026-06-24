@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 try:
     from dotenv import load_dotenv
-    load_dotenv()
+    load_dotenv(override=True)
 except ImportError:
     pass
 

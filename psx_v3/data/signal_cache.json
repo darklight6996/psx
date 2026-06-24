@@ -1,105 +1,105 @@
 {
     "sector_rotation": {
         "sectors": {
-            "Automobile Assembler / Parts": {
-                "return": 42.61915299738709,
+            "Miscellaneous / Real Estate": {
+                "return": 16.699615062034034,
                 "rank": 1,
                 "status": "LEADER"
             },
-            "Miscellaneous / Real Estate": {
-                "return": 37.53029514232479,
+            "Textile": {
+                "return": 16.051781020987995,
                 "rank": 2,
                 "status": "LEADER"
             },
-            "Steel & Engineering": {
-                "return": 6.728571459285024,
+            "Cement": {
+                "return": 12.512648492354066,
                 "rank": 3,
                 "status": "LEADER"
             },
-            "Transport / Logistics": {
-                "return": 6.473496848700093,
+            "Oil & Gas Marketing": {
+                "return": 9.834713849890582,
                 "rank": 4,
                 "status": "LEADER"
             },
-            "Textile": {
-                "return": 5.043901405236454,
+            "Glass & Ceramics": {
+                "return": 9.418647164526996,
                 "rank": 5,
                 "status": "NEUTRAL"
             },
-            "Glass & Ceramics": {
-                "return": 4.128204500650487,
+            "Steel & Engineering": {
+                "return": 8.280837938519943,
                 "rank": 6,
                 "status": "NEUTRAL"
             },
-            "Cement": {
-                "return": 3.6136293432488906,
+            "Power Generation & Distribution": {
+                "return": 5.656625444845948,
                 "rank": 7,
                 "status": "NEUTRAL"
             },
-            "Technology & Telecom": {
-                "return": 3.5176760224302277,
+            "Oil & Gas Exploration": {
+                "return": 4.90292915530327,
                 "rank": 8,
                 "status": "NEUTRAL"
             },
-            "Chemicals & Paper": {
-                "return": 2.583622378200807,
+            "Transport / Logistics": {
+                "return": 4.023326818690327,
                 "rank": 9,
                 "status": "NEUTRAL"
             },
-            "Pharmaceuticals": {
-                "return": 2.5061043571913975,
+            "Refineries": {
+                "return": 3.9918375171860334,
                 "rank": 10,
                 "status": "NEUTRAL"
             },
-            "Fertilizer": {
-                "return": 0.9266169366500592,
+            "Pharmaceuticals": {
+                "return": 3.5275438707127797,
                 "rank": 11,
                 "status": "NEUTRAL"
             },
-            "Food & Beverages / Personal Care": {
-                "return": -1.7733127951027374,
+            "Chemicals & Paper": {
+                "return": 2.245719675250203,
                 "rank": 12,
                 "status": "NEUTRAL"
             },
-            "Oil & Gas Exploration": {
-                "return": -1.8191569192744144,
+            "Food & Beverages / Personal Care": {
+                "return": 1.1473435133884198,
                 "rank": 13,
                 "status": "LAGGARD"
             },
-            "Oil & Gas Marketing": {
-                "return": -1.8850666975611992,
+            "Fertilizer": {
+                "return": 0.7332453387376376,
                 "rank": 14,
                 "status": "LAGGARD"
             },
-            "Power Generation & Distribution": {
-                "return": -1.9982236554896122,
+            "Technology & Telecom": {
+                "return": 0.20479831716451433,
                 "rank": 15,
                 "status": "LAGGARD"
             },
-            "Refineries": {
-                "return": -2.7849389555111905,
+            "Automobile Assembler / Parts": {
+                "return": -14.392245454973775,
                 "rank": 16,
                 "status": "LAGGARD"
             }
         },
-        "timestamp": 1781247021.3843582,
-        "updated_at": "2026-06-12T11:50:37.173523"
+        "timestamp": 1782194083.6010642,
+        "updated_at": "2026-06-23T10:55:00.164832"
     },
     "breadth": {
-        "status": "CONSOLIDATING",
-        "index_price": 169703.6,
-        "ema_20": 169141.54,
-        "atr_10": 1261.56,
-        "up_down_ratio": 1.0,
-        "sentiment": "neutral",
-        "timestamp": 1781247038.7540452,
-        "updated_at": "2026-06-12T11:50:40.830193"
+        "status": "EXPANDING",
+        "index_price": 178471.86,
+        "ema_20": 173974.8,
+        "atr_10": 1717.71,
+        "up_down_ratio": 2.33,
+        "sentiment": "bullish",
+        "timestamp": 1782194081.5910842,
+        "updated_at": "2026-06-23T10:54:43.597654"
     },
     "kibor": {
-        "rate": 12.5,
+        "rate": 12.9895,
         "sentiment": "neutral",
-        "timestamp": 1781247021.234116,
+        "timestamp": 1782194081.1234634,
         "source": "State Bank of Pakistan",
-        "updated_at": "2026-06-12T11:50:21.383356"
+        "updated_at": "2026-06-23T10:54:41.591084"
     }
 }

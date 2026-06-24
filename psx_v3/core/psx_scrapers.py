@@ -51,6 +51,7 @@ def fetch_psx_announcements(symbol: str) -> list[dict]:
 
     # Fallback/Mock generator for realistic testing
     if not announcements:
+        logger.warning(f"USING MOCK ANNOUNCEMENT DATA for {sym} — live fetch failed. This data is NOT real.")
         logger.info(f"Generating realistic mock announcements for {sym}")
         ann_templates = [
             ("Financial Results", "Board of Directors meeting will be held on {} to consider Financial Statements for the period ended."),
@@ -88,6 +89,7 @@ def fetch_forum_discussions(symbol: str) -> list[dict]:
     incorporating hype words, bots, and opinions so our News Filter can show off its filters.
     """
     sym = symbol.strip().upper()
+    logger.debug(f"fetch_forum_discussions: returning simulated posts for {sym} (no real forum API connected)")
     posts = []
 
     # Retail templates containing hype, logical fallacies, bot posts, and real facts

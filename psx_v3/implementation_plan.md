@@ -1,100 +1,88 @@
-# Implementation Plan: PSX Advisory Agent v3 Complete Rebuild (with Auditing, Horizon, and Lifecycle Tracking)
+# PSX Advisory Agent v3 - Code Audit & Implementation Plan
 
-This plan details a complete architectural reset and rebuild of the PSX Advisory Agent v3 into a single unified pipeline combining the Master Prompt requirements with the 15 specific architectural changes.
+## Audit Findings
 
-## User Review Required
+After comprehensive code review of the PSX Advisory Agent v3 system, several bugs, inconsistencies, and logic errors have been identified. The system has been fixed for the main RSI/ML issues but additional problems remain.
 
-> [!IMPORTANT]
-> - **Unified 3-Tier Pipeline:**
->   - **Tier 1 (Quantitative Screen):** Runs mathematical checks and computes score/verdict for all 600+ stocks.
->   - **Tier 1.5 (Micro-Agent Spotter):** Single-prompt Ollama check to detect hidden structural patterns without issuing scores, ratings, or overrides. Output: `{"interesting": true, "structural_patterns": [...], "investigate_further": true, "explanation": "..."}`.
->   - **Tier 2 (AI Board Room):** Runs 6 Ollama analysts + Chairman ONLY on shortlisted candidates (top 15-20).
-> - **Board Room Repositioning:** Restructured to challenge, validate, and contextualize quant recommendations (highlighting catalyst/failure risks). AI Chairman cannot override actions, Shariah status, target prices, or stop losses.
-> - **Mathematical Engines:**
->   - **Confidence Engine (`confidence_engine.py`):** Derived mathematically (no LLMs) from signal agreement, anomaly strength, history, ML probability, and trend strength.
->   - **Prediction Audit Engine (`prediction_audit.py`):** Analyzes historical outcomes, failure reasons, and success rates.
->   - **Horizon Engine (`horizon_engine.py`):** Calculates holding period, target price, stop loss, and confidence interval using ATR.
->   - **Deterministic Shariah SSOT (`shariah_engine.py`):** Deterministic Meezan criteria. Evaluates defense/arms companies purely on financial metrics (no auto-fail on classification alone). Board room is restricted to notes only.
-> - **Recommendation Lifecycle:** `pipeline_results` will track status (`OPEN`, `TARGET_HIT`, `STOP_HIT`, `EXPIRED`, `MANUALLY_CLOSED`).
-> - **Validation & Guards:** Walk-forward validation (rolling windows) for ML. Feedback engine requires manual approval on the dashboard for weight proposals.
-> - **Analysis Details Tab:** New UI tab explaining the exact "why" behind each generated recommendation.
+### Critical Issues:
+1. **Inconsistent RSI Calculation** - The selective_ml.py module still uses the old rolling mean approach instead of the proper ta library RSI calculation
+2. **Missing Error Handling** - Some functions don't properly handle edge cases and missing data
+3. **Potential Data Race Conditions** - In multi-threaded contexts, data consistency may be compromised
 
-## Proposed Changes
+### High Priority Issues:
+1. **ML Model Accuracy Display Logic** - The predictions tab doesn't properly handle all ML status conditions
+2. **Cache Invalidation** - When ML results are updated via sidebar, the cache isn't always properly invalidated
+3. **Tab Navigation State** - The tab navigation system could be more robust
 
----
+### Medium Priority Issues:
+1. **Missing Input Validation** - Several functions don't validate inputs before processing
+2. **Documentation Gaps** - Some complex functions lack clear docstrings
+3. **Performance Optimization** - Certain loops could be optimized for better performance
 
-### Phase 1: Database & Data Layers
+## Implementation Plan
 
-#### [MODIFY] [db.py](file:///d:/psx_agent_v3/psx_v3/memory/db.py)
-* Add `pipeline_results` table storing the canonical recommendation package (`symbol`, `action`, `confidence`, `horizon`, `target_price`, `stop_loss`, `shariah_status`, `anomaly_flags`, `boardroom_summary`) and lifecycle fields (`recommendation_created_at`, `recommendation_expiry_at`, `target_hit`, `stop_hit`, `outcome_status`).
-* Add `prediction_audit` table.
-* Include `trading_journal`, `user_feedback`, `calibration_proposals`, `sentiment_history`, and `psx_announcements` tables.
+### Phase 1: Fix Critical Issues (Immediate)
+- [ ] Update selective_ml.py to use proper RSI calculation from indicators module
+- [ ] Add comprehensive error handling throughout ML modules
+- [ ] Implement data validation checks in core functions
 
-#### [NEW] [psx_live.py](file:///d:/psx_agent_v3/psx_v3/core/psx_live.py)
-* Fetch live quotes, market status, market watch, order book bid-ask depth, and announcements from `https://dps.psx.com.pk`. yfinance fallback included.
-* Remove all legacy Capital Stakes references.
+### Phase 2: Fix High Priority Issues 
+- [ ] Improve ML display logic in predictions tab
+- [ ] Implement proper cache invalidation for sidebar ML runs
+- [ ] Enhance tab navigation robustness
 
----
+### Phase 3: Address Medium Priority Issues
+- [ ] Add missing input validation to key functions
+- [ ] Improve docstrings and documentation
+- [ ] Optimize performance-critical loops
 
-### Phase 2: Core Computational Engines
+## Detailed Implementation Steps
 
-#### [NEW] [shariah_engine.py](file:///d:/psx_agent_v3/psx_v3/core/shariah_engine.py)
-* Deterministic Meezan screening engine returning `status` (`COMPLIANT`, `NON_COMPLIANT`, `GRAY_AREA`), `score`, `violations`, and `gray_areas`.
-* Defense/arms companies are evaluated based on financial criteria rather than auto-flagged on industry classification.
-* Predictions Tab, Dashboard, Board Room, Alerts, and Reports all read from this single source of truth.
+### Critical Issue 1: Inconsistent RSI Calculation
+**File:** `core/selective_ml.py`
+**Problem:** Line 32 uses `df["Close"].pct_change().rolling(14).mean().iloc[-1] * 100` instead of proper ta library RSI
+**Fix:** Replace with call to `calc_rsi(df).iloc[-1]` from `core.indicators`
 
-#### [NEW] [confidence_engine.py](file:///d:/psx_agent_v3/psx_v3/core/confidence_engine.py)
-* Mathematical confidence calculator using signal agreement, anomaly strength, historical accuracy, ML probability, and trend strength. No LLM generation.
+### Critical Issue 2: Missing Error Handling
+**Files:** `core/ml_engine.py`, `core/pipeline.py`
+**Problem:** Functions don't gracefully handle edge cases like empty dataframes or missing dependencies
+**Fix:** Add comprehensive try-catch blocks and validation checks
 
-#### [NEW] [horizon_engine.py](file:///d:/psx_agent_v3/psx_v3/core/horizon_engine.py)
-* Calculates recommended holding periods, target prices, stop losses, and confidence intervals using ATR.
+### High Priority Issue 1: ML Display Logic
+**File:** `ui/predictions_tab.py`
+**Problem:** Incomplete handling of ML status conditions in display logic
+**Fix:** Add proper handling for all ML statuses including "skipped", "error", and "insufficient_data"
 
-#### [NEW] [prediction_audit.py](file:///d:/psx_agent_v3/psx_v3/core/prediction_audit.py)
-* Audits historical predictions (predicted vs. actual outcome), outputting failure reasons, per-stock success rates, and per-indicator/anomaly success rates.
+### High Priority Issue 2: Cache Invalidation
+**Files:** `app.py`, `core/selective_ml.py`
+**Problem:** When sidebar ML runs, results aren't properly persisted to database
+**Fix:** Add explicit DB update after selective ML completion
 
-#### [NEW] [sentiment_engine.py](file:///d:/psx_agent_v3/psx_v3/core/sentiment_engine.py)
-* Announcement-only sentiment analyzer utilizing disclosures, earnings, and dividend reports. Social scraping/forum buzz is disabled initially.
+### Medium Priority Issue 1: Input Validation
+**Files:** All core modules
+**Problem:** Functions don't validate inputs before processing
+**Fix:** Add input validation at function entry points
 
----
+### Medium Priority Issue 2: Documentation
+**Files:** `core/ml_engine.py`, `core/pipeline.py`
+**Problem:** Missing or incomplete docstrings for complex functions
+**Fix:** Add comprehensive docstrings with parameter descriptions and return values
 
-### Phase 3: ML, Pipeline, & Board Room REST
+### Medium Priority Issue 3: Performance Optimization
+**Files:** `core/pipeline.py`, `core/ml_engine.py`  
+**Problem:** Some loops could be optimized
+**Fix:** Review and optimize data processing loops where possible
 
-#### [MODIFY] [ml_engine.py](file:///d:/psx_agent_v3/psx_v3/core/ml_engine.py)
-* Convert to 2-class problem (UP vs. NOT_UP), 200-row data guard, and pooled model training.
-* Implement walk-forward validation and rolling windows instead of random train/test splits.
+## Testing Requirements
 
-#### [NEW] [pipeline.py](file:///d:/psx_agent_v3/psx_v3/core/pipeline.py)
-* Unified 3-Tier Pipeline (T1 Quant Screen $\rightarrow$ T1.5 Micro-Agent Spotter $\rightarrow$ T2 Board Room Debate).
-* Tier 1.5 structural JSON output uses `{"interesting": true, "structural_patterns": [...], "investigate_further": true, "explanation": "..."}`. Discovery only, no scoring, no rating overrides.
+1. **Unit Tests:** Each fixed function should have unit tests
+2. **Integration Tests:** Test the end-to-end flow from daily analysis to ML prediction display
+3. **Regression Tests:** Ensure existing functionality isn't broken by fixes
+4. **Edge Case Tests:** Test with empty data, missing files, and error conditions
 
-#### [MODIFY] [ollama_council.py](file:///d:/psx_agent_v3/psx_v3/council/ollama_council.py)
-* Reposition Board Room to challenge/validate quant recommendations. AI analysts focus on catalysts, risks of failure, and catalysts of success. Chairman summarizes debate, consensus, and disagreements, but cannot override actions, Shariah status, target prices, or stop losses. Shariah analyst limited to notes only.
+## Timeline Estimate
 
----
-
-### Phase 4: UI & Feedback Enhancements
-
-#### [MODIFY] [ui/predictions_tab.py](file:///d:/psx_agent_v3/psx_v3/ui/predictions_tab.py)
-* Sort recommendations by `FINAL_SCORE DESC, CONFIDENCE DESC`.
-* Display order: BUY+COMPLIANT, BUY+GRAY AREA, HOLD, SELL.
-
-#### [NEW] [ui/analysis_details_tab.py](file:///d:/psx_agent_v3/psx_v3/ui/analysis_details_tab.py)
-* Explanation tab detailing signals, anomaly triggers, confidence breakdown, Shariah analysis, board room debate, historical performance, and recommendation lifecycle.
-
-#### [NEW] [ui/feedback_tab.py](file:///d:/psx_agent_v3/psx_v3/ui/feedback_tab.py)
-* Calibration proposals, correction forms, and post-mortems view.
-
-#### [MODIFY] [feedback_analyser.py](file:///d:/psx_agent_v3/psx_v3/memory/feedback_analyser.py)
-* Proposals are queued in the Feedback Dashboard for manual approval; the system cannot modify live weights or deploy calibrations automatically.
-
----
-
-## Verification Plan
-
-### Automated Tests
-- Run offline validation scripts verifying Tier 1.5 does not score stocks or override Tier 1 decisions.
-- Verify Shariah engine handles defense stocks correctly without auto-rejecting.
-- Verify ML walk-forward validation executes without data leakage.
-
-### Manual Verification
-- Trace a stock from screening to debate, checking that Predictions, Dashboard, and Board Room share the identical recommendation package.
+- Phase 1 (Critical): 2-3 hours
+- Phase 2 (High Priority): 3-4 hours  
+- Phase 3 (Medium Priority): 2-3 hours
+- Testing & Validation: 2-3 hours

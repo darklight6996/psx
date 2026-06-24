@@ -206,26 +206,42 @@ def render_dashboard_tab(daily_results: dict, macro: dict, alerts: list, port_su
                 """, unsafe_allow_html=True)
         st.markdown("<hr style='margin:16px 0 24px 0; border-color:#334155;'>", unsafe_allow_html=True)
 
-    # ── Sorted Alerts (STOP_HIT first, SELL second, then others) ──────────────
+    # ── Sorted Alerts (urgent personal first, then STOP_HIT, SELL, then others) ─
     if alerts:
-        st.markdown("### ⚠️ Active Alerts")
-        def alert_priority(a):
-            t = a.get("type", "")
-            if t == "STOP_HIT":
-                return 1
-            elif t == "SELL":
-                return 2
-            else:
-                return 3
-        sorted_alerts = sorted(alerts, key=alert_priority)
-        for alert in sorted_alerts:
-            color = "#f87171" if alert["type"] in ("SELL", "STOP_HIT") else "#fbbf24"
-            st.markdown(
-                f"""<div style="background:#1e293b;border-left:4px solid {color};
-                padding:10px 16px;border-radius:4px;margin-bottom:8px;font-size:14px;">
-                <strong>[{alert['type']}]</strong> {alert['symbol']} — {alert['reason']}</div>""",
-                unsafe_allow_html=True,
-            )
+        from core.personal_advisor import URGENT_VERDICTS
+
+        urgent_personal = [a for a in alerts if a.get("urgent") or a.get("type", "") in URGENT_VERDICTS]
+        other_alerts = [a for a in alerts if a not in urgent_personal]
+
+        if urgent_personal:
+            st.markdown("### 🚨 Urgent — Your Positions Need Attention")
+            for alert in urgent_personal:
+                st.markdown(
+                    f"""<div style="background:#4a1818;border-left:4px solid #f87171;
+                    padding:12px 16px;border-radius:4px;margin-bottom:8px;font-size:14px;">
+                    <strong style="color:#f87171">🚨 [{alert['type']}]</strong> <strong>{alert['symbol']}</strong> — {alert['reason']}</div>""",
+                    unsafe_allow_html=True,
+                )
+
+        if other_alerts:
+            st.markdown("### ⚠️ Active Alerts")
+            def alert_priority(a):
+                t = a.get("type", "")
+                if t == "STOP_HIT":
+                    return 1
+                elif t == "SELL":
+                    return 2
+                else:
+                    return 3
+            sorted_alerts = sorted(other_alerts, key=alert_priority)
+            for alert in sorted_alerts:
+                color = "#f87171" if alert["type"] in ("SELL", "STOP_HIT") else "#fbbf24"
+                st.markdown(
+                    f"""<div style="background:#1e293b;border-left:4px solid {color};
+                    padding:10px 16px;border-radius:4px;margin-bottom:8px;font-size:14px;">
+                    <strong>[{alert['type']}]</strong> {alert['symbol']} — {alert['reason']}</div>""",
+                    unsafe_allow_html=True,
+                )
 
     # ── Portfolio summary cards ──────────────────────────────────────────────
     if port_summary and port_summary.get("num_positions", 0) > 0:

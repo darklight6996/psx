@@ -25,7 +25,7 @@ try:
 except ImportError:
     pass
 
-NEWSAPI_KEY = os.getenv("NEWSAPI_KEY", "")
+
 
 
 # ---------------------------------------------------------------------------
@@ -75,19 +75,19 @@ def _score_text(text: str) -> int:
 
 
 def get_macro_sentiment(lookback_days: int = 3) -> dict:
-    # Re-read key at call time so .env values are always picked up
+    from dotenv import load_dotenv
+    load_dotenv(override=True)
     api_key = os.getenv("NEWSAPI_KEY", "").strip()
     if not api_key or api_key == "your_newsapi_key_here":
         return _fallback_sentiment()
 
     try:
         from newsapi import NewsApiClient
-        from newsapi.newsapi_exception import NewsAPIException
         api = NewsApiClient(api_key=api_key)
         from_dt = (datetime.now() - timedelta(days=lookback_days)).strftime("%Y-%m-%d")
 
         articles = api.get_everything(
-            q='Pakistan AND (economy OR economic OR finance OR stock OR stocks OR market OR inflation OR IMF OR GDP OR "interest rate" OR rupee)',
+            q="Pakistan stock exchange OR Pakistan economy OR SBP OR IMF Pakistan OR rupee",
             language="en",
             sort_by="publishedAt",
             from_param=from_dt,
@@ -133,23 +133,11 @@ def get_macro_sentiment(lookback_days: int = 3) -> dict:
         }
 
     except ImportError:
-        logger.error("newsapi-python not installed.")
-        return {
-            "sentiment": "error",
-            "score": 0,
-            "headlines": [],
-            "source": "newsapi",
-            "summary": "Error: newsapi-python not installed. Run: pip install newsapi-python"
-        }
+        logger.error("newsapi-python not installed. Run: pip install newsapi-python")
+        return _fallback_sentiment()
     except Exception as e:
         logger.error(f"NewsAPI call failed: {type(e).__name__}: {e}")
-        return {
-            "sentiment": "error",
-            "score": 0,
-            "headlines": [],
-            "source": "newsapi",
-            "summary": f"NewsAPI call failed: {type(e).__name__}: {str(e)}"
-        }
+        return _fallback_sentiment()
 
 
 def _fallback_sentiment() -> dict:

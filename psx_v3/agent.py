@@ -40,7 +40,7 @@ def analyse_stock(
     universe_df=None,
     macro_sentiment: str = "neutral",
     force_refresh: bool = False,
-    run_ml: bool = False,
+    run_ml: bool = True,
 ) -> dict:
     """
     Deprecated: Main analysis is handled via core.pipeline.run_pipeline_for_stock.

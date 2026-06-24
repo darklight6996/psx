@@ -969,6 +969,4 @@ def get_pipeline_run_summary() -> dict:
     }
 
 
-# Auto-init on import
-init_db()
-
+# Auto-init on import removed. Called explicitly in app.py now.

@@ -350,8 +350,9 @@ if not st.session_state["daily_results"]:
     if cached_results:
         st.session_state["daily_results"] = cached_results
         macro_data = load_latest_macro()
-        from core.macro_sentiment import NEWSAPI_KEY
-        if macro_data.get("source") == "fallback" and NEWSAPI_KEY and NEWSAPI_KEY != "your_newsapi_key_here":
+        import os
+        api_key = os.getenv("NEWSAPI_KEY", "")
+        if macro_data.get("source") == "fallback" and api_key and api_key != "your_newsapi_key_here":
             try:
                 from core.macro_sentiment import get_macro_sentiment
                 macro_data = get_macro_sentiment()

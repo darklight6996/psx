@@ -60,8 +60,11 @@ def _build_feature_matrix(df: pd.DataFrame) -> Optional[pd.DataFrame]:
     d["avg_vol_20"] = d["Volume"].rolling(20).mean()
 
     delta = d["Close"].diff()
-    gain = delta.where(delta > 0, 0).rolling(14).mean()
-    loss = (-delta.where(delta < 0, 0)).rolling(14).mean()
+    gain = delta.where(delta > 0, 0)
+    loss = (-delta.where(delta < 0, 0))
+    # Use Wilder's smoothing (EWMA with alpha=1/14) instead of simple rolling mean
+    gain = gain.ewm(alpha=1/14, adjust=False).mean()
+    loss = loss.ewm(alpha=1/14, adjust=False).mean()
     d["rsi"] = 100 - (100 / (1 + gain / loss.replace(0, np.nan)))
 
     ema12 = d["Close"].ewm(span=12, adjust=False).mean()

@@ -11,7 +11,7 @@ print("Training models...")
 meta = train_models("SYS", df, force=True)
 print(f"Training result: {meta['status']}")
 print(f"  RF CV accuracy: {meta['rf_cv_accuracy_pct']}%")
-print(f"  XGB CV MAE:     {meta['xgb_cv_mae_pct']}%")
+
 print(f"  Training rows:  {meta['training_rows']}")
 print()
 

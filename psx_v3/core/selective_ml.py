@@ -11,6 +11,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import pandas as pd
 from core.ml_engine import predict as ml_predict
 from core.data_engine import fetch_ohlcv
+from core.indicators import calc_rsi
 
 logger = logging.getLogger("selective_ml")
 
@@ -28,8 +29,9 @@ def run_ml_on_stocks(symbols: list[str]) -> dict:
                 return sym, {"status": "insufficient_data", "direction": "NOT_UP"}
             
             price_now = float(df["Close"].iloc[-1])
-            # simple RSI approximation for the snapshot required by predict
-            rsi_val = float(df["Close"].pct_change().rolling(14).mean().iloc[-1] * 100) if len(df) >= 14 else 50.0
+            # Use proper RSI from the indicators module
+            rsi_series = calc_rsi(df)
+            rsi_val = float(rsi_series.iloc[-1]) if not rsi_series.empty else 50.0
             
             snapshot = {
                 "price": price_now,

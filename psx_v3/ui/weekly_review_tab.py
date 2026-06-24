@@ -23,6 +23,10 @@ from memory.db import (
     get_agent_log, add_investment,
 )
 from core.data_engine import get_latest_price
+from core.personal_advisor import (
+    get_personal_portfolio_context, get_personal_signal,
+    PERSONAL_VERDICT_DISPLAY, URGENT_VERDICTS, PROFIT_VERDICTS,
+)
 
 
 def render_weekly_review_tab(daily_results: dict = None):
@@ -53,6 +57,69 @@ Or use the **Add Investment** form below to record a manual entry.
                 p = get_latest_price(sym)
                 if p:
                     live_prices[sym] = p
+
+    # ── Portfolio Personal Summary ─────────────────────────────────────────────
+    # Compute personal signals for all held positions
+    personal_signals = {}
+    for pos in open_positions:
+        sym = pos["symbol"]
+        price = live_prices.get(sym)
+        if price:
+            ctx = get_personal_portfolio_context(sym, price)
+            # Use market signal from daily_results if available, else HOLD
+            market_sig = "HOLD"
+            market_score = 50.0
+            if daily_results and sym in daily_results:
+                r = daily_results[sym]
+                if "advisory" in r:
+                    market_sig = r["advisory"].get("rating", "HOLD")
+                    market_score = r["advisory"].get("score", 50.0)
+            sig = get_personal_signal(sym, market_sig, market_score, price, None, ctx)
+            personal_signals[sym] = sig
+
+    # Build portfolio personal summary
+    attention_items = []
+    buy_candidates = []
+    for sym, sig in personal_signals.items():
+        v = sig.get("personal_verdict", "")
+        if v in URGENT_VERDICTS:
+            attention_items.append((sym, sig, "urgent"))
+        elif v in PROFIT_VERDICTS:
+            attention_items.append((sym, sig, "profit"))
+        elif v in ("HOLD_AND_TRAIL", "HOLD_WITHIN_TOLERANCE", "WATCH_CAREFULLY"):
+            attention_items.append((sym, sig, "hold"))
+
+    # Check for non-held stocks with BUY signal
+    if daily_results:
+        held_syms = set(p["symbol"] for p in open_positions)
+        for sym, r in daily_results.items():
+            if sym not in held_syms and "advisory" in r:
+                if r["advisory"].get("rating") == "BUY":
+                    price = r.get("current_price", 0)
+                    if price:
+                        ctx = get_personal_portfolio_context(sym, price)
+                        sig = get_personal_signal(sym, "BUY", r["advisory"].get("score", 50), price, None, ctx)
+                        if sig.get("personal_verdict") == "CONSIDER_BUYING":
+                            buy_candidates.append((sym, sig))
+
+    if attention_items or buy_candidates:
+        st.markdown("### 📋 Portfolio Personal Summary")
+        if attention_items:
+            for sym, sig, category in attention_items:
+                v = sig.get("personal_verdict", "")
+                label = PERSONAL_VERDICT_DISPLAY.get(v, v)
+                if category == "urgent":
+                    st.error(f"**🚨 {sym}** — {label}: {sig.get('personal_action', '')[:120]}")
+                elif category == "profit":
+                    st.success(f"**💰 {sym}** — {label}: {sig.get('personal_action', '')[:120]}")
+                else:
+                    st.warning(f"**🟡 {sym}** — {label}: {sig.get('personal_action', '')[:120]}")
+        if buy_candidates:
+            st.markdown("**Watchlist with BUY signal:**")
+            for sym, sig in buy_candidates[:5]:
+                price = sig.get("suggested_entry_pkr", 0)
+                st.info(f"**🔵 {sym}** — Consider buying at PKR {price:,.2f}")
+        st.markdown("---")
 
     # ── Weekly review ─────────────────────────────────────────────────────────
     review = generate_weekly_review(live_prices)
@@ -127,6 +194,11 @@ Or use the **Add Investment** form below to record a manual entry.
                      "WATCH — approaching stop": "#f59e0b",
                      "⚠️ REVIEW — stop loss territory": "#f87171"}.get(rec, "#94a3b8")
 
+        # Get personal signal for this position
+        psig = personal_signals.get(sym, {})
+        p_verdict = psig.get("personal_verdict", "")
+        p_label = PERSONAL_VERDICT_DISPLAY.get(p_verdict, p_verdict) if p_verdict else rec
+        p_action = psig.get("personal_action", "")
 
         with st.container():
             col_sym, col_vals, col_pnl, col_stop, col_rec, col_action = st.columns([1.5, 2.5, 2, 2, 2, 1.5])
@@ -142,10 +214,15 @@ Or use the **Add Investment** form below to record a manual entry.
                 f'</span>', unsafe_allow_html=True
             )
             
-            # Trailing stop column calculation
-            from core.indicators import calc_trailing_stop
+            # Trailing stop column — use personal signal if available
             inv_records = [i for i in open_positions if i["symbol"] == sym]
-            if inv_records:
+            if psig.get("trailing_stop_pkr"):
+                stop_val = psig["trailing_stop_pkr"]
+                entry_p = psig.get("entry_price", inv_records[0]["entry_price"] if inv_records else 0)
+                stop_pct_from_entry = ((stop_val - entry_p) / entry_p * 100) if entry_p > 0 else 0
+                col_stop.markdown(f"Stop: **PKR {stop_val:,.2f}**\n\n_{stop_pct_from_entry:+.1f}% from entry_")
+            elif inv_records:
+                from core.indicators import calc_trailing_stop
                 entry_p = inv_records[0]["entry_price"]
                 cur_p = live_prices.get(sym, entry_p)
                 stop_status = calc_trailing_stop(entry_p, cur_p, stop_pct=0.10)
@@ -155,7 +232,7 @@ Or use the **Add Investment** form below to record a manual entry.
                 col_stop.markdown("Stop: **N/A**")
                 
             col_rec.markdown(
-                f'<span style="color:{rec_color};font-size:13px">{rec}</span>',
+                f'<span style="color:{rec_color};font-size:13px">{p_label}</span>',
                 unsafe_allow_html=True
             )
             inv_records = [i for i in open_positions if i["symbol"] == sym]
@@ -168,12 +245,27 @@ Or use the **Add Investment** form below to record a manual entry.
                            f"Realised P&L: PKR {realised:+,.0f}")
                 st.rerun()
 
+            # Personal action + narrative
+            action_text = p_action if p_action else f"{signal} — {pos_review['narrative']}"
             st.markdown(
                 f'<div style="background:#1e293b;border-radius:6px;padding:8px 12px;'
                 f'margin-bottom:12px;font-size:12px;color:#94a3b8">'
-                f'{signal} — {pos_review["narrative"]}'
+                f'{action_text}'
                 f'</div>', unsafe_allow_html=True
             )
+
+            # Show targets if available
+            if psig.get("target_1_pkr") or psig.get("target_2_pkr"):
+                t1 = psig.get("target_1_pkr", 0)
+                t2 = psig.get("target_2_pkr", 0)
+                cur_p = live_prices.get(sym, 0)
+                t1_pct = ((t1 - cur_p) / cur_p * 100) if cur_p > 0 and t1 > 0 else 0
+                t2_pct = ((t2 - cur_p) / cur_p * 100) if cur_p > 0 and t2 > 0 else 0
+                tc1, tc2 = st.columns(2)
+                if t1:
+                    tc1.metric("Target 1", f"PKR {t1:,.2f}", delta=f"{t1_pct:+.1f}%")
+                if t2:
+                    tc2.metric("Target 2", f"PKR {t2:,.2f}", delta=f"{t2_pct:+.1f}%")
 
     # ── P&L over time chart ───────────────────────────────────────────────────
     st.markdown("---")

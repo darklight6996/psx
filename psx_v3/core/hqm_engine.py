@@ -173,56 +173,7 @@ def compute_legacy_momentum_signal(
     raise RuntimeError("compute_legacy_momentum_signal is deprecated. Use core.scoring_engine instead.")
 
 
-    # Base score: 60% HQM + 40% technical
-    composite = hqm_score * 0.60 + technical_score * 0.40
 
-    # Shariah override — non-compliant stocks can never be BUY
-    if not shariah_compliant:
-        reasons.append("Non-Shariah-compliant: cannot recommend BUY")
-        return {
-            "rating":    "SELL",
-            "score":     0.0,
-            "composite": round(composite, 1),
-            "rationale": reasons,
-        }
-
-    # Macro adjustment
-    if macro_sentiment == "bearish":
-        composite *= 0.85
-        reasons.append("Macro sentiment bearish: score penalised -15%")
-    elif macro_sentiment == "bullish":
-        composite *= 1.05
-        composite = min(100, composite)
-        reasons.append("Macro sentiment bullish: score boosted +5%")
-
-    # Rating thresholds
-    if composite >= 65:
-        rating = "BUY"
-        reasons.append(f"Strong composite score ({composite:.0f}/100)")
-    elif composite >= 45:
-        rating = "HOLD"
-        reasons.append(f"Moderate composite score ({composite:.0f}/100)")
-    else:
-        rating = "SELL"
-        reasons.append(f"Weak composite score ({composite:.0f}/100)")
-
-    # Add momentum context
-    if hqm_score >= 75:
-        reasons.append("Top-quartile HQM momentum")
-    elif hqm_score <= 25:
-        reasons.append("Bottom-quartile HQM momentum — weak trend")
-
-    if technical_score >= 70:
-        reasons.append("Bullish technical signals")
-    elif technical_score <= 30:
-        reasons.append("Bearish technical signals")
-
-    return {
-        "rating":    rating,
-        "score":     round(composite, 1),
-        "composite": round(composite, 1),
-        "rationale": reasons,
-    }
 
 
 # ---------------------------------------------------------------------------

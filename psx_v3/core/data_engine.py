@@ -315,8 +315,8 @@ def get_market_status() -> dict:
     Trading hours: Monday-Friday, 09:30 AM to 03:30 PM PKT (UTC+5).
     """
     # Pakistan Time is UTC + 5
-    utc_now = datetime.utcnow()
-    pkt_now = utc_now + timedelta(hours=5)
+    from datetime import timezone
+    pkt_now = datetime.now(timezone.utc) + timedelta(hours=5)
     
     # Check day of week (0 = Monday, 6 = Sunday)
     weekday = pkt_now.weekday()

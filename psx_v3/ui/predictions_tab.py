@@ -15,6 +15,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from core.hqm_engine    import calc_position_size
 from core.shariah_engine import calc_purification
 from core.portfolio     import add_position, remove_position, get_total_capital, update_capital
+from core.personal_advisor import PERSONAL_VERDICT_DISPLAY, URGENT_VERDICTS
 
 
 # ---------------------------------------------------------------------------
@@ -41,18 +42,19 @@ def render_rankings_table(results: dict) -> pd.DataFrame:
     for sym, r in results.items():
         if "error" in r:
             rows.append({
-                "Symbol":      sym,
-                "Company":     "",
-                "Rating":      "ERROR",
-                "ML Dir":      "—",
-                "Score":       0.0,
-                "Confidence":  0.0,
-                "Regime":      "—",
-                "RSI":         None,
-                "Trend":       "—",
-                "Shariah":     "—",
-                "Price (PKR)": None,
-                "SortKey":     999
+                "Symbol":        sym,
+                "Company":       "",
+                "Market Signal": "ERROR",
+                "My Signal":     "—",
+                "ML Dir":        "—",
+                "Score":         0.0,
+                "Confidence":    0.0,
+                "Regime":        "—",
+                "RSI":           None,
+                "Trend":         "—",
+                "Shariah":       "—",
+                "Price (PKR)":   None,
+                "SortKey":       999
             })
             continue
 
@@ -69,7 +71,12 @@ def render_rankings_table(results: dict) -> pd.DataFrame:
 
         rating = r["advisory"]["rating"]
         shariah_status = r["shariah"].get("overall_status", "UNKNOWN")
-        
+
+        # Personal signal
+        personal = r.get("personal_signal", {})
+        personal_verdict = personal.get("personal_verdict", "—")
+        personal_label = PERSONAL_VERDICT_DISPLAY.get(personal_verdict, personal_verdict) if personal_verdict != "—" else "—"
+
         # SortKey mapping: BUY+COMPLIANT=1, BUY+GRAY_AREA/REVIEW=2, HOLD=3, SELL=4
         if rating == "BUY":
             if shariah_status == "COMPLIANT":
@@ -82,18 +89,19 @@ def render_rankings_table(results: dict) -> pd.DataFrame:
             sort_key = 4
 
         rows.append({
-            "Symbol":      sym,
-            "Company":     r.get("company_name", sym)[:25],
-            "Rating":      f"{_rating_color(rating)} {rating}",
-            "ML Dir":      ml_dir_label,
-            "Score":       r["advisory"]["score"],
-            "Confidence":  r.get("confidence", 0.0),
-            "Regime":      regime,
-            "RSI":         rsi_val,
-            "Trend":       trend,
-            "Shariah":     f"{_shariah_color(shariah_status)} {shariah_status}",
-            "Price (PKR)": r.get("current_price"),
-            "SortKey":     sort_key
+            "Symbol":        sym,
+            "Company":       r.get("company_name", sym)[:25],
+            "Market Signal": f"{_rating_color(rating)} {rating}",
+            "My Signal":     personal_label,
+            "ML Dir":        ml_dir_label,
+            "Score":         r["advisory"]["score"],
+            "Confidence":    r.get("confidence", 0.0),
+            "Regime":        regime,
+            "RSI":           rsi_val,
+            "Trend":         trend,
+            "Shariah":       f"{_shariah_color(shariah_status)} {shariah_status}",
+            "Price (PKR)":   r.get("current_price"),
+            "SortKey":       sort_key
         })
 
     df = pd.DataFrame(rows)
@@ -155,8 +163,118 @@ def render_stock_detail(symbol: str, result: dict):
     for reason in advisory.get("rationale", []):
         st.markdown(f"• {reason}")
 
+    # ── Personal Position Section (Your Signal) ──────────────────────────────
+    personal = result.get("personal_signal", {})
+    port_ctx = result.get("portfolio_context", {})
+
+    if port_ctx.get("holding"):
+        pnl_color = "#4ade80" if port_ctx.get("pnl_pkr", 0) >= 0 else "#f87171"
+        arrow = "▲" if port_ctx.get("pnl_pkr", 0) >= 0 else "▼"
+
+        st.markdown(f"""
+        <div style="background:linear-gradient(135deg,#0f172a,#1e1b4b);
+        border:2px solid #38bdf8;border-radius:14px;padding:20px;margin:16px 0">
+            <div style="font-size:12px;color:#64748b;text-transform:uppercase;
+            letter-spacing:1px;margin-bottom:12px">Your Position in {symbol}</div>
+            <div style="display:flex;gap:24px;flex-wrap:wrap;margin-bottom:16px">
+                <div>
+                    <div style="font-size:11px;color:#64748b">Avg Entry</div>
+                    <div style="font-size:20px;font-weight:700;color:#f1f5f9">
+                    PKR {port_ctx.get('avg_entry_price', 0):,.2f}</div>
+                </div>
+                <div>
+                    <div style="font-size:11px;color:#64748b">Shares</div>
+                    <div style="font-size:20px;font-weight:700;color:#f1f5f9">
+                    {port_ctx.get('total_shares', 0):,}</div>
+                </div>
+                <div>
+                    <div style="font-size:11px;color:#64748b">Invested</div>
+                    <div style="font-size:20px;font-weight:700;color:#f1f5f9">
+                    PKR {port_ctx.get('total_invested_pkr', 0):,.0f}</div>
+                </div>
+                <div>
+                    <div style="font-size:11px;color:#64748b">Current Value</div>
+                    <div style="font-size:20px;font-weight:700;color:#f1f5f9">
+                    PKR {port_ctx.get('current_value_pkr', 0):,.0f}</div>
+                </div>
+                <div>
+                    <div style="font-size:11px;color:#64748b">P&L</div>
+                    <div style="font-size:22px;font-weight:800;color:{pnl_color}">
+                    {arrow} PKR {abs(port_ctx.get('pnl_pkr', 0)):,.0f}
+                    ({port_ctx.get('pnl_pct', 0):+.1f}%)</div>
+                </div>
+                <div>
+                    <div style="font-size:11px;color:#64748b">Held</div>
+                    <div style="font-size:20px;font-weight:700;color:#94a3b8">
+                    {port_ctx.get('weeks_held', 0)}w</div>
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
+
+        # Personal recommendation box
+        verdict = personal.get("personal_verdict", "")
+        urgent = verdict in URGENT_VERDICTS
+        from core.personal_advisor import PROFIT_VERDICTS
+        border_color = "#f87171" if urgent else "#fbbf24" if verdict in PROFIT_VERDICTS else "#38bdf8"
+
+        st.markdown(f"""
+            <div style="background:#1e293b;border-left:4px solid {border_color};
+            border-radius:0 8px 8px 0;padding:14px 18px;margin-top:8px">
+                <div style="font-size:11px;color:#64748b;text-transform:uppercase;
+                letter-spacing:1px;margin-bottom:6px">Personal Recommendation</div>
+                <div style="font-size:15px;color:#f1f5f9;line-height:1.6">
+                {personal.get('personal_action', '—')}</div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Key levels for this user's position
+        if personal.get("trailing_stop_pkr"):
+            lc1, lc2, lc3 = st.columns(3)
+            entry_p = port_ctx.get("avg_entry_price", 0)
+            stop_p = personal.get("trailing_stop_pkr", 0)
+            t1_p = personal.get("target_1_pkr", 0)
+            t2_p = personal.get("target_2_pkr", 0)
+            cur_p = port_ctx.get("current_price", 0)
+
+            stop_delta = f"{((stop_p - entry_p) / entry_p * 100):+.1f}% from entry" if entry_p > 0 else ""
+            t1_delta = f"{((t1_p - cur_p) / cur_p * 100):+.1f}% from now" if cur_p > 0 else ""
+            t2_delta = f"{((t2_p - cur_p) / cur_p * 100):+.1f}% from now" if cur_p > 0 else ""
+
+            lc1.metric("Your Trailing Stop", f"PKR {stop_p:,.2f}", delta=stop_delta)
+            if t1_p:
+                lc2.metric("Target 1", f"PKR {t1_p:,.2f}", delta=t1_delta)
+            if t2_p:
+                lc3.metric("Target 2", f"PKR {t2_p:,.2f}", delta=t2_delta)
+
+        st.markdown("---")
+    else:
+        # No position — show a compact personal signal summary
+        p_verdict = personal.get("personal_verdict", "—")
+        p_label = PERSONAL_VERDICT_DISPLAY.get(p_verdict, p_verdict)
+        if p_verdict != "—":
+            st.markdown(f"""
+            <div style="background:#1e293b;border:1px solid #334155;border-radius:10px;
+            padding:12px 18px;margin:10px 0;display:flex;gap:16px;align-items:center">
+                <div>
+                    <div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:1px">
+                    Market Signal</div>
+                    <div style="font-size:18px;font-weight:700;color:{rc}">{rating}</div>
+                </div>
+                <div style="border-left:1px solid #334155;padding-left:16px">
+                    <div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:1px">
+                    Your Signal</div>
+                    <div style="font-size:18px;font-weight:700;color:#38bdf8">{p_label}</div>
+                </div>
+                <div style="border-left:1px solid #334155;padding-left:16px;flex:1">
+                    <div style="font-size:13px;color:#94a3b8">{personal.get('personal_action', '')}</div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
     # ── ML Signals (inline mini-panel) ───────────────────────────────────────
     ml = result.get("ml_signals", {})
+    # Fix Issue #4: Handle skipped ML status gracefully
     if ml and ml.get("status") not in ("error", None):
         ml_dir   = ml.get("direction", "SIDEWAYS")
         ml_conf  = ml.get("confidence_pct", 0)
@@ -185,6 +303,15 @@ def render_stock_detail(symbol: str, result: dict):
               </div>
             </div>""", unsafe_allow_html=True
         )
+    else:
+        # Show friendly message when ML is skipped or not available
+        if ml and (ml.get("status") == "skipped" or ml.get("direction") == "UNKNOWN"):
+            st.markdown(
+                f"""<div style="background:#0f172a;border:1px solid #334155;border-radius:10px;
+                padding:12px 18px;margin:10px 0;">
+                  <div style="font-size:14px;color:#94a3b8">ML not run — use sidebar to run ML on this stock</div>
+                </div>""", unsafe_allow_html=True
+            )
 
     st.markdown("---")
 

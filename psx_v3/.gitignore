@@ -1,5 +1,7 @@
 .env
-test.py
-data/agent.log
+data/
 __pycache__/
 *.pyc
+data/ml_models/
+data/cache/
+data/psx_memory.db

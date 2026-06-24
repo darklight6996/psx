@@ -27,6 +27,7 @@ from core.confidence_engine import compute_confidence
 from core.horizon_engine import compute_horizon
 from core.ml_engine import predict as ml_predict
 from council.ollama_council import run_ai_council, ollama_chat, pick_model, get_available_models, parse_json_response
+from core.personal_advisor import get_personal_portfolio_context, get_personal_signal
 
 logger = logging.getLogger("pipeline")
 
@@ -79,6 +80,7 @@ Signals: {json.dumps(t1_result.get('signals', {}))}
 
 def run_pipeline_for_stock(symbol: str, df: pd.DataFrame, force_council: bool = False, run_ml: bool = False) -> dict:
     """Runs the full 3-tiered pipeline for a single stock and logs results to DB."""
+    from core.indicators import calc_rsi
     symbol = symbol.upper()
     start_time = time.time()
     
@@ -122,9 +124,13 @@ def run_pipeline_for_stock(symbol: str, df: pd.DataFrame, force_council: bool = 
     # ML inference (if run_ml is True and minimum 200 rows guard passed)
     ml_res = {}
     if run_ml:
+        # Use proper RSI from the indicators module
+        rsi_series = calc_rsi(df)
+        rsi_val = float(rsi_series.iloc[-1]) if not rsi_series.empty else 50.0
+        
         ml_res = ml_predict(symbol, {
             "price": price_now,
-            "rsi": float(df["Close"].pct_change().rolling(14).mean().iloc[-1] * 100) if len(df) >= 14 else 50.0,
+            "rsi": rsi_val,
             "volume": float(df["Volume"].iloc[-1]),
         }, df)
     else:
@@ -174,6 +180,17 @@ def run_pipeline_for_stock(symbol: str, df: pd.DataFrame, force_council: bool = 
         adx_value=adx_val
     )
     
+    # ── Personal Signal (Layer on top of market signal) ──────────────────────
+    portfolio_ctx = get_personal_portfolio_context(symbol, price_now)
+    personal_signal = get_personal_signal(
+        symbol=symbol,
+        market_signal=t1_score["verdict"],
+        market_score=t1_score["final_score"],
+        current_price=price_now,
+        df=df,
+        portfolio_context=portfolio_ctx,
+    )
+
     # Construct complete Tier 1 output package
     pipeline_res = {
         "symbol": symbol,
@@ -200,7 +217,9 @@ def run_pipeline_for_stock(symbol: str, df: pd.DataFrame, force_council: bool = 
         "fundamentals": fundamentals,
         "council_run": 0,
         "council_result": None,
-        "challenge_result": None
+        "challenge_result": None,
+        "personal_signal": personal_signal,
+        "portfolio_context": portfolio_ctx,
     }
     
     # ── News Enrichment: X Feed + Google Search ──────────────────────────────
@@ -322,8 +341,8 @@ def save_pipeline_result(res: dict, duration_s: float):
         fundamentals_json = json.dumps(res.get("fundamentals", {}))
         
         # Expiry is 14 calendar days from now by default
-        from datetime import timedelta as _timedelta
-        expiry_date = (datetime.now() + _timedelta(days=14)).isoformat()
+        from datetime import timedelta
+        expiry_date = (datetime.now() + timedelta(days=14)).isoformat()
         
         if exists:
             conn.execute("""
